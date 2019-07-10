@@ -695,6 +695,7 @@ write_rds(tract_be7, path = paste0(filepath, "/11_Scratch/tract_be7.rds"))
 
 # tract-level variables from 2008-2012 ACS 5-year estimates (mid-year 2010) 
 # % college graduates, % young adults (25-34), % individuals without any vehicle
+
 # LEHD 2010 
 # count of jobs in food services, entertainment/arts, etc 
 # standardize by UA
@@ -702,51 +703,87 @@ write_rds(tract_be7, path = paste0(filepath, "/11_Scratch/tract_be7.rds"))
 varlist2 <- c("B06009_001", "B06009_005", "B06009_006", "B06001_001", "B06001_005", 
               "B08014_001", "B08014_002") 
 
-ivall <- NULL 
+var2012 <- load_variables(2012, "acs5", cache = TRUE)
+var2012 %>%
+  filter(name %in% varlist2)
 
-iv_st <- 
+get_acs_tract2 <- function(i){
+  tryCatch(
+    {
+      get_acs(geography = "tract", state = list_st_fips[[1]][i],  
+              variables = varlist2, year=2012, output = "wide", cache_table = TRUE)
+    }, 
+    error=function(cond){
+      # message("Here's the original error message:")
+      message(cond)
+      return(NA)
+    }
+  )
+}
+
+# first-round api call 
+# rm(tract_acs2012_raw)
+start_time <- Sys.time()
+tract_acs2012_raw <- map(1:37, get_acs_tract2) # took about ?? minutes
+end_time <- Sys.time()
+end_time - start_time
+
+# second-round api call 
+tract_acs2012_raw_okay <- c(1:37)[map_lgl(tract_acs2012_raw, is.list)]        
+tract_acs2012_raw_fail <- c(1:37)[map_lgl(tract_acs2017_raw, ~!is.list(.))]  
+map(tract_acs2012_raw_fail, function(x) tract_acs2012_raw[[x]] <<- get_acs_tract2(x))
+
+
+
+
+st_tr_tb <- 
   trd %>%
   rename(GEOID = tr) %>%
   mutate(st = substr(GEOID, 1, 2)) %>%
-  select(st, GEOID)
+  arrange(st, GEOID) %>%
+  select(st, UACE10, GEOID) 
+
+iv_all <- NULL 
 
 
 
 
-
-temp <- NULL
-temp <- get_acs(geography = "tract", state = list_st_fips[[1]][1], variables = varlist2[1], year=2016, 
-                cache_table = TRUE)
-#Sys.sleep(0.75)
-temp <- temp[, c("GEOID", "estimate")]
-colnames(temp) <- c("GEOID", paste(varlist2[j], "est", sep=""))  
-iv_st <- merge(iv_st, temp, by="GEOID") 
 
 for (i in 1:37) {
+  iv_st <- NULL
+  iv_st <- st_tr_tb %>% filter(st == list_st_fips[[1]][i])
   for (j in 1:7) {
-    temp <- NULL
-    temp <- get_acs(geography = "tract", state = list_st_fips[[1]][i], variables = varlist2[j], year=2016, 
-                    cache_table = TRUE)
+    temp00 <- NULL
+    temp00 <- get_acs(
+      geography = "tract", 
+      state = list_st_fips[[1]][i], 
+      variables = varlist2[j], 
+      year=2012, # 2012 have many missing variables
+      cache_table = TRUE
+      )
     #Sys.sleep(0.75)
-    temp <- temp[, c("GEOID", "estimate")]
-    colnames(temp) <- c("GEOID", paste(varlist2[j], "est", sep=""))  
-    iv_st <- merge(iv_st, temp, by="GEOID") 
+    temp01 <- temp00[, c("GEOID", "estimate")]
+    colnames(temp01) <- c("GEOID", paste0(varlist2[j], "est"))  
+    iv_st <- iv_st %>% left_join(temp01, by="GEOID")
   }
-  ivall <- rbind(ivall, iv_st)
+  iv_all <- rbind(iv_all, iv_st)
 }
 
-ivall$pctcoll <- ifelse(ivall$B06009_001est>0, (ivall$B06009_005est + ivall$B06009_006est)/ivall$B06009_001est *100, 0)
-ivall$pctyoung <- ifelse(ivall$B06001_001est>0, ivall$B06001_005est/ivall$B06001_001est*100, 0) 
-ivall$pctxveh <- ifelse(ivall$B08014_001est>0, ivall$B08014_002est/ivall$B08014_001est *100, 0)
-ivall <- ivall[, c("GEOID", "UACE10", "pctcoll", "pctyoung", "pctxveh")]  
-head(ivall)
+iv_all
+# str(iv_all)
 
-ivjob <- NULL 
+iv_all$pctcoll  <- ifelse(iv_all$B06009_001est>0, (iv_all$B06009_005est + iv_all$B06009_006est)/iv_all$B06009_001est *100, 0)
+iv_all$pctyoung <- ifelse(iv_all$B06001_001est>0,  iv_all$B06001_005est/iv_all$B06001_001est*100, 0) 
+iv_all$pctxveh  <- ifelse(iv_all$B08014_001est>0,  iv_all$B08014_002est/iv_all$B08014_001est *100, 0)
+iv_all <- iv_all[, c("GEOID", "UACE10", "pctcoll", "pctyoung", "pctxveh")]  
+head(iv_all)
+
+iv_job <- NULL 
 for(i in 1:37) {
   temp <- grab_lodes(state=ST[i], year=2011, lodes_type="wac", agg_geo="tract")
   temp <- temp[, c("w_tract", "CNS09", "CNS12", "CNS17", "CNS18")]  
   temp <- as.data.frame(temp)
-  ivjob <- rbind(ivjob, temp)
+  iv_job <- rbind(iv_job, temp)
 }
 colnames(ivjob)[1] <- "GEOID"
 ivjob2 <- merge(trd, ivjob, by="GEOID")
@@ -778,10 +815,10 @@ rm("temp", "temp2")
 write.csv(ivall4, "M:/Uber_NHTS/11_Scratch/ivall4.csv")
 
 
-ivall4 <- read.csv("M:/Uber_NHTS/11_Scratch/ivall4.csv")
-ivall4[, 1] <- NULL
-ivall4$GEOID <- as.character(ivall4$GEOID)
-ivall4$GEOID <- ifelse(nchar(ivall4$GEOID)==10, paste("0", ivall4$GEOID, sep=""), ivall4$GEOID)
+iv_all4 <- read.csv("M:/Uber_NHTS/11_Scratch/ivall4.csv")
+iv_all4[, 1] <- NULL
+iv_all4$GEOID <- as.character(iv_all4$GEOID)
+iv_all4$GEOID <- ifelse(nchar(iv_all4$GEOID)==10, paste("0", iv_all4$GEOID, sep=""), iv_all4$GEOID)
 
 
 
