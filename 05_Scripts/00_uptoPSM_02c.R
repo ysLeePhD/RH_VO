@@ -87,7 +87,7 @@ Sys.getenv("CENSUS_API_KEY")
 
 # Step 1. Read in input files ------------------------------------------------
 
-### Task 1. Prepare a data frame of block group FIPS codes in top 50 UA (by popoulation in 2013-2017 ACS) ----
+## Task 1-1. Prepare a data frame of block group FIPS codes in top 50 UA (by popoulation in 2013-2017 ACS) ----
 
 # start.time <- Sys.time() # https://stackoverflow.com/questions/6262203/measuring-function-execution-time-in-r
 # end.time <- Sys.time()
@@ -219,10 +219,10 @@ trd <- bgd %>%
   summarize() # include two duplicates 
   
 write_rds(trd, paste0(filepath, "/11_Scratch/trd.rds"))
+# trd <- read_rds(paste0(filepath, "/11_Scratch/trd.rds"))
 
 
-
-### Task 2. Read in and select variables of NHTS restricted-use data files ----
+## Task 1-2. Read in and select variables of NHTS restricted-use data files ----
 
 hh <- read_csv(paste0(filepath, "/03_NHTS/Csv/hhpub.csv"))
 # colnames(hh)
@@ -271,7 +271,7 @@ hhpbg %>% select(tr) %>% n_distinct() # 11,424 unique tracts
 
 # Step 2. prepare BE/neighborhood-level IV attributes -------------------------------------------
 
-### Task 1. Download ACS 2013-2017 for 300 st-cnty combinations ---- 
+## Task 2-1. Download ACS 2013-2017 for 300 st-cnty combinations ---- 
 
 var.acs <- load_variables(2017, "acs5", cache = TRUE)
 # var.acs %>%
@@ -350,7 +350,7 @@ tract_acs2017_rb <- tract_acs2017_raw %>%
 
 
 
-### Task 2. Download sp objects for 300 st-cnty via tigris::tracts ----
+## Task 2-2. Download sp objects for 300 st-cnty via tigris::tracts ----
 
 tigris_cache_dir(paste0(filepath, "/05_Census/tigris"))
 readRenviron('~/.Renviron')
@@ -413,7 +413,7 @@ write_rds(tract_be, paste0(filepath, "/05_Census/tract_be.rds"))
 
 
 
-### Task 3. Download job counts at the block level for 37 states via lehdr::grab_lodes ---- 
+## Task 2-3. Download job counts at the block level for 37 states via lehdr::grab_lodes ---- 
 
 # https://lehd.ces.census.gov/doc/help/onthemap/OnTheMapDataOverview.pdf
 # https://github.com/jamgreen/lehdr
@@ -424,6 +424,7 @@ list_st_fips <-
   table() %>%
   names() %>% 
   as.data.frame()
+
 colnames(list_st_fips) <- "fips_st"
 
 list_st_lookup <- read_csv(paste0(filepath, "/05_Census/list_fips_st.csv"))
@@ -526,7 +527,7 @@ write_rds(tract_be3, paste0(filepath, "/05_Census/tract_be3.rds"))
 
 
 
-### Task 4. Read in the US EPA Smart Location Database ---- 
+## Task 2-4. Read in the US EPA Smart Location Database ---- 
 
 sld <- read.dbf(paste0(filepath, "/04_SLD/SmartLocationDb.dbf"), as.is = TRUE) # read in character as character
 
@@ -559,9 +560,9 @@ write_rds(tract_be4, paste0(filepath, "/05_Census/tract_be4.rds"))
 
 
 
-### Task 5. Run exploratory factor analysis on five LU measures, standardized by UA ---- 
+## Task 2-5. Run exploratory factor analysis on five LU measures, standardized by UA ---- 
 
-## Task 5.1 prep data: log-transform 
+### Task 2-5-1 prep data: log-transform ----
 tract_be5 <- tract_be4[complete.cases(tract_be4), ]
 
 # library("car")
@@ -605,7 +606,7 @@ map(tract_be5[, c(3:35)], ~shapiro.test(sample(., size = 5000))$p.value) %>% unl
 map(tract_be6[, c(3:35)], ~shapiro.test(sample(., size = 5000))$p.value) %>% unlist()
 
 
-## Task 5.2 run factor analysis 
+### Task 2-5-2 run factor analysis ----
 
 # prep packages: http://dwoll.de/rexrepos/posts/multFA.html
 wants <- c("GPArotation", "mvtnorm", "psych")
@@ -690,7 +691,7 @@ write_rds(tract_be7, path = paste0(filepath, "/11_Scratch/tract_be7.rds"))
 
 
 
-### Task 6. Append instrument variables for the use of Uber, which captures *exogenous* variation in Uber supply ----  
+## Task 2-6. Append instrument variables for the use of Uber, which captures *exogenous* variation in Uber supply ----  
 
 # tract-level variables from 2008-2012 ACS 5-year estimates (mid-year 2010) 
 # % college graduates, % young adults (25-34), % individuals without any vehicle
@@ -784,7 +785,7 @@ ivall4$GEOID <- ifelse(nchar(ivall4$GEOID)==10, paste("0", ivall4$GEOID, sep="")
 
 
 
-## Task 7. Scrape walkscore.com: using a different file of scripts 
+## Task 2-7. Scrape walkscore.com: using a different file of scripts ----
 
 trxy <- NULL 
 for (i in 1:37) {
@@ -808,7 +809,7 @@ trxy <- read.csv("M:/Uber_NHTS/11_Scratch/trxy.csv")
 
 # Step 3. Prepare HH/PERSON/individual-level IV variables -------------------------------------
 
-## Task 1. Outcome variables: data01
+## Task 3-1. Outcome variables: data01 ----
 
 # n of vehicles, transit trips per week, non-motorized trips per week 
 # treatment indicator 
@@ -883,7 +884,7 @@ sapply(data01, class)
 
 
 
-## Task 2. HH variables  
+## Task 3-2. HH variables ---- 
 
 # n of child, employees, and bicycles, income, homeownership, residence type, 
 # residential/work density + accessibility
@@ -938,7 +939,7 @@ rm("data02", "data03", "beall7", "ivall4")
 
 
 
-## Task 3. Uber suuply variable: Google Trends # of Searches
+## Task 3-3. Uber suuply variable: Google Trends # of Searches ----
 
 ua2016 <- urban_areas(cb=FALSE, year=2016)
 ualist <- ua2016@data
@@ -1108,7 +1109,7 @@ rm("uber06", "uber07", "uber08", "uber09", "uber10")
 
 
 
-## Task 4. Person variables, "non-workers removed" 
+## Task 3-4. Person variables, "non-workers removed" ----
 
 # Age, commute distance, disability, educational attainment, gender, driver's license, occupation (1 among 3)
 # n of commute days per week 
@@ -1211,7 +1212,7 @@ rm("data08")
 
 
 
-## Task 5. Merge three dataframes 
+## Task 3-5. Merge three dataframes ----
 
 colnames(data01)
 colnames(data06)
@@ -1227,7 +1228,7 @@ nrow(data10)
 
 # Step 4. Estimate binary logit/probit for balancing the final sample -----
 
-## Task 1. PSM estimation 
+## Task 4-1. PSM estimation ----
 
 #4.1. Compute a new categorical variable, RS 
 # 0 - no use in the last 30 days 
@@ -1262,7 +1263,7 @@ a
 
 
 
-## Task 2. PSM estimation 
+## Task 4-2. PSM estimation ----
 
 ## (1- nrow(data10[is.na(data10$RS)==FALSE, ])/nrow(data10))*100 
 ## table(data10$RS)
@@ -1696,7 +1697,7 @@ colnames(data13)
 
 
 
-## Task 3. Prepare for mplut estimation 
+## Task 4-3. Prepare for mplut estimation ----
 
 varname <- as.data.frame(colnames(data13))
 nrow(varname)-54
