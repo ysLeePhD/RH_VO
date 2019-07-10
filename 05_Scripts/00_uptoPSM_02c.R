@@ -428,7 +428,7 @@ list_st_fips <-
 colnames(list_st_fips) <- "fips_st"
 
 list_st_lookup <- read_csv(paste0(filepath, "/05_Census/list_fips_st.csv"))
-list_st_names <- left_join(list_st_fips, list_st_lookup)$st
+list_st_names <- left_join(list_st_fips, list_st_lookup)$st  
 
 ## define a function that collects work-area job counts at the tract level 
 get_lodes_wac <- function(x){
@@ -726,15 +726,12 @@ get_acs_tract2 <- function(i){
 start_time <- Sys.time()
 tract_acs2012_raw <- map(1:37, get_acs_tract2) 
 end_time <- Sys.time()
-end_time - start_time # took about ?? minutes
+end_time - start_time # Time difference of 1.477453 hours
 
 # second-round api call 
 tract_acs2012_raw_okay <- c(1:37)[map_lgl(tract_acs2012_raw, is.list)]        
 tract_acs2012_raw_fail <- c(1:37)[map_lgl(tract_acs2017_raw, ~!is.list(.))]  
 map(tract_acs2012_raw_fail, function(x) tract_acs2012_raw[[x]] <<- get_acs_tract2(x))
-
-
-
 
 st_tr_tb <- 
   trd %>%
@@ -743,102 +740,129 @@ st_tr_tb <-
   arrange(st, GEOID) %>%
   select(st, UACE10, GEOID) 
 
-iv_all <- NULL 
-
-
-
-
-
-for (i in 1:37) {
-  iv_st <- NULL
-  iv_st <- st_tr_tb %>% filter(st == list_st_fips[[1]][i])
-  for (j in 1:7) {
-    temp00 <- NULL
-    temp00 <- get_acs(
-      geography = "tract", 
-      state = list_st_fips[[1]][i], 
-      variables = varlist2[j], 
-      year=2012, # 2012 have many missing variables
-      cache_table = TRUE
-      )
-    #Sys.sleep(0.75)
-    temp01 <- temp00[, c("GEOID", "estimate")]
-    colnames(temp01) <- c("GEOID", paste0(varlist2[j], "est"))  
-    iv_st <- iv_st %>% left_join(temp01, by="GEOID")
+start_time <- Sys.time()
+iv_acs00 <- vector("list", 37)
+for (i in 1:37){
+  iv_acs00[[i]] <- 
+    st_tr_tb %>%
+    filter(st == list_st_fips[[1]][i]) %>%
+    left_join(tract_acs2012_raw[[i]], by = "GEOID") %>%
+    mutate(
+      pctcoll  = ifelse(B06009_001E>0, (B06009_005E + B06009_006E)/B06009_001E * 100, 0),
+      pctyoung = ifelse(B06001_001E>0,  B06001_005E / B06001_001E * 100, 0),    
+      pctxveh  = ifelse(B08014_001E>0,  B08014_002E / B08014_001E * 100, 0)  
+    ) %>%
+    select(st, UACE10, GEOID, pctcoll, pctyoung, pctxveh) 
   }
-  iv_all <- rbind(iv_all, iv_st)
-}
 
-iv_all
-# str(iv_all)
+iv_acs01 <- iv_acs00 %>% bind_rows() # 32939 tracts 
+# https://stackoverflow.com/questions/2851327/convert-a-list-of-data-frames-into-one-data-frame
+end_time <- Sys.time()
+end_time - start_time # Time difference of 29.89684 mins
 
-iv_all$pctcoll  <- ifelse(iv_all$B06009_001est>0, (iv_all$B06009_005est + iv_all$B06009_006est)/iv_all$B06009_001est *100, 0)
-iv_all$pctyoung <- ifelse(iv_all$B06001_001est>0,  iv_all$B06001_005est/iv_all$B06001_001est*100, 0) 
-iv_all$pctxveh  <- ifelse(iv_all$B08014_001est>0,  iv_all$B08014_002est/iv_all$B08014_001est *100, 0)
-iv_all <- iv_all[, c("GEOID", "UACE10", "pctcoll", "pctyoung", "pctxveh")]  
-head(iv_all)
+list_st_names_lowercase <- list_st_names %>% tolower()
 
-iv_job <- NULL 
+start_time <- Sys.time()
+iv_job00 <- vector("list", 37)
 for(i in 1:37) {
-  temp <- grab_lodes(state=ST[i], year=2011, lodes_type="wac", agg_geo="tract")
-  temp <- temp[, c("w_tract", "CNS09", "CNS12", "CNS17", "CNS18")]  
-  temp <- as.data.frame(temp)
-  iv_job <- rbind(iv_job, temp)
-}
-colnames(ivjob)[1] <- "GEOID"
-ivjob2 <- merge(trd, ivjob, by="GEOID")
-ivjob2$UACE00<- NULL
-ivjob2$techjob <- ivjob2$CNS09 + ivjob2$CNS12 
-ivjob2$servjob <- ivjob2$CNS17 + ivjob2$CNS18 
-ivjob3 <- ivjob2[, c("GEOID", "techjob", "servjob")]
-ivall2 <- merge(ivall, ivjob3, by="GEOID")
+  iv_job00[[i]] <- 
+    grab_lodes(state=list_st_names_lowercase[i], year=2011, lodes_type="wac", agg_geo="tract") %>%
+    select(w_tract, CNS09, CNS12, CNS17, CNS18)
+  }
+iv_job01 <- iv_job00 %>% bind_rows() 
+# https://stackoverflow.com/questions/2851327/convert-a-list-of-data-frames-into-one-data-frame
+end_time <- Sys.time()
+end_time - start_time # Time difference of 1.110486 mins
 
-ivall3 <- merge(ivall2, ALAND, by="GEOID")
-ivall3$ALAND <- as.numeric(ivall3$ALAND)
-ivall3$techden <- ifelse(ivall3$ALAND>0, ivall3$techjob*1000000/ivall3$ALAND, 0)
-ivall3$servden <- ifelse(ivall3$ALAND>0, ivall3$servjob*1000000/ivall3$ALAND, 0)
-ivall3$ALAND <- NULL
-ivall3$techjob <- NULL
-ivall3$servjob <- NULL
+trd %>% filter(tr == "25005611202")
+# A tibble: 2 x 2
+# Groups:   tr [1]
+# tr          UACE10
+# <chr>       <chr> 
+# 1 25005611202 09271 
+# 2 25005611202 72505 
 
-temp <- ivall3
-temp <- ddply(temp, c("UACE10"), transform, pctcoll.std=scale(pctcoll))
-temp <- ddply(temp, c("UACE10"), transform, pctyoung.std=scale(pctyoung))
-temp <- ddply(temp, c("UACE10"), transform, pctxveh.std=scale(pctxveh))
-temp <- ddply(temp, c("UACE10"), transform, techden.std=scale(techden))
-temp <- ddply(temp, c("UACE10"), transform, servden.std=scale(servden))
-ivall4 <- temp[, c(1:2,8:12)]
-
-rm("iv_st", "ALAND", "ivall", "ivall2", "ivall3", "ivjob", "ivjob2", "ivjob3")
-rm("temp", "temp2")
-
-write.csv(ivall4, "M:/Uber_NHTS/11_Scratch/ivall4.csv")
+trd %>% filter(tr == "36119012502")
+# A tibble: 2 x 2
+# Groups:   tr [1]
+# tr          UACE10
+# <chr>       <chr> 
+# 1 36119012502 10162 
+# 2 36119012502 63217 
 
 
-iv_all4 <- read.csv("M:/Uber_NHTS/11_Scratch/ivall4.csv")
-iv_all4[, 1] <- NULL
-iv_all4$GEOID <- as.character(iv_all4$GEOID)
-iv_all4$GEOID <- ifelse(nchar(iv_all4$GEOID)==10, paste("0", iv_all4$GEOID, sep=""), iv_all4$GEOID)
+start_time <- Sys.time()
+iv_job02 <- # 32939 tracts 
+  trd %>% 
+  left_join(iv_job01, by=c("tr" = "w_tract")) %>%
+  mutate(
+    GEOID = tr, 
+    techjob = CNS09 + CNS12, 
+    servjob = CNS17 + CNS18 
+  ) %>%
+  select(GEOID, UACE10, techjob, servjob)
+end_time <- Sys.time()
+end_time - start_time # Time difference of 2.987984 mins
+
+
+start_time <- Sys.time()
+iv_all00 <- 
+  iv_acs01 %>%
+  # group_by(GEOID) %>%
+  # summarize(
+  #   pctcoll = mean(pctcoll), 
+  #   pctyoung = mean(pctyoung), 
+  #   pctxveh = mean(pctxveh) 
+  # ) %>% 
+  # ungroup() %>%
+  left_join(iv_job02, by=c("GEOID", "UACE10")) %>%
+  left_join(tract_area_rb, by = "GEOID") %>%
+  mutate(
+    techden = techjob/sqmile, 
+    servden = servjob/sqmile
+  ) %>%
+  select(GEOID, UACE10, pctcoll, pctyoung, pctxveh, techden, servden)
+end_time <- Sys.time()
+end_time - start_time # Time difference of 3.036413 mins
+
+# standardize by UA 
+start_time <- Sys.time()
+iv_all01 <- 
+  iv_all00 %>%
+  group_by(UACE10) %>% 
+  mutate(
+    z.pctcoll =scale(pctcoll), 
+    z.pctyoung=scale(pctyoung), 
+    z.pctxveh =scale(pctxveh), 
+    z.techden =scale(techden), 
+    z.servden =scale(servden)
+  ) %>%
+  ungroup()
+end_time <- Sys.time()
+end_time - start_time # Time difference of 0.07981992 secs
+
+write_rds(iv_all01, paste0(filepath, "/11_Scratch/iv_all01.rds"))  # 32,939 tracts
+# iv_all01 <- read_rds(paste0(filepath, "/11_Scratch/iv_all01.rds")) 
 
 
 
 ## Task 2-7. Scrape walkscore.com: using a different file of scripts ----
 
-trxy <- NULL 
-for (i in 1:37) {
-  temp1   <- tracts(ST[i], year=2016)
-  temp2   <- temp1@data[, c("GEOID", "INTPTLAT", "INTPTLON")]
-  temp3   <- merge(trd, temp2, by="GEOID")
-  trxy    <- rbind(trxy, temp3)
-}
-colnames(trxy) <- c("GEOID", "UACE10", "y", "x")
-trxy$x <- as.numeric(trxy$x)
-trxy$y <- as.numeric(trxy$y)
-rm("temp1", "temp2", "temp3")
-write.csv(trxy, "M:/Uber_NHTS/11_Scratch/trxy.csv")
-
-
-trxy <- read.csv("M:/Uber_NHTS/11_Scratch/trxy.csv")
+# trxy <- NULL 
+# for (i in 1:37) {
+#   temp1   <- tracts(ST[i], year=2016)
+#   temp2   <- temp1@data[, c("GEOID", "INTPTLAT", "INTPTLON")]
+#   temp3   <- merge(trd, temp2, by="GEOID")
+#   trxy    <- rbind(trxy, temp3)
+# }
+# colnames(trxy) <- c("GEOID", "UACE10", "y", "x")
+# trxy$x <- as.numeric(trxy$x)
+# trxy$y <- as.numeric(trxy$y)
+# rm("temp1", "temp2", "temp3")
+# write.csv(trxy, "M:/Uber_NHTS/11_Scratch/trxy.csv")
+# 
+# 
+# trxy <- read.csv("M:/Uber_NHTS/11_Scratch/trxy.csv")
 
 #See another script that scrapes walkscores at the census tract level: To be updated
 
