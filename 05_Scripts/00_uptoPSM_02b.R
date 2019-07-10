@@ -1,12 +1,13 @@
 
+# Step 0. Basic setup: libraries & working directory ----------------------
 
 if (!require("foreign")) install.packages("foreign", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 if (!require("plyr")) install.packages("plyr", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 if (!require("tidyverse")) install.packages("tidyverse", repos = "http://cran.us.r-project.org", dependencies = TRUE)
-if (!require("sf")) install.packages("sf", repos = "http://cran.us.r-project.org", dependencies = TRUE)
-if (!require("tigris")) install.packages("tigris", repos = "http://cran.us.r-project.org", dependencies = TRUE)
-if (!require("tidycensus")) install.packages("tidycensus", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 
+if (!require("sf")) install.packages("sf", repos = "http://cran.us.r-project.org", dependencies = TRUE)
+if (!require("tidycensus")) install.packages("tidycensus", repos = "http://cran.us.r-project.org", dependencies = TRUE)
+if (!require("tigris")) install.packages("tigris", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 if (!require("devtools")) install.packages("devtools")
 devtools::install_github("jamgreen/lehdr")
 
@@ -17,10 +18,11 @@ if (!require("MatchIt")) install.packages("MatchIt", repos = "http://cran.us.r-p
 library(foreign)
 library(plyr)
 library(tidyverse)
+
+library(sf)
 library(tidycensus)
 library(tigris)
 options(tigris_use_cache = TRUE)
-
 library(lehdr)
 
 library(psych)
@@ -42,29 +44,31 @@ if (dir.exists("C:/Users/Yongs/")){
 } else {
   filepath <- "C:/Users/ylee366/Dropbox (GaTech)/3a_ResearchCEE/09_Uber_NHTS"
 } 
+    
 
-#1. Read input files 
+
+
+
+# Step 1. Read in input files ------------------------------------------------
 
 hh <- read.csv(paste0(filepath, "/03_NHTS/Csv/hhpub.csv"))
 ## boxplot(HHVEHCNT ~ LIF_CYC, data=hh)
+hh$NUMCHILD <- ifelse(hh$HHSIZE>=hh$NUMADLT, hh$HHSIZE-hh$NUMADLT, 0)
+# summary(hh$NUMCHILD)
 per <- read.csv(paste0(filepath, "/03_NHTS/Csv/perpub.csv"))
-hh$NUMCHILD <- ifelse(hh$HHSIZE>=hh$NUMADLT, hh$HHSIZE-hh$NUMADLT, NA)
 
-#per$Under18 <- ifelse(per$R_AGE<18, 1, 0)
-#temp1 <- per[, c("HOUSEID", "Under18")]
-#temp1$HOUSEID <- as.character(temp1$HOUSEID)
-#temp2 <- ddply(temp1, .(HOUSEID), summarize, tot=sum(Under18))
-#temp2$HOUSEID <- as.integer(temp2$HOUSEID)
-#hh <- merge(hh, temp2, by="HOUSEID")
-#colnames(hh)[58] <- "NCHILD"
-
+# the below files are not accessible from my laptop 
 home <- read.csv('F:/3 Study/0 medium term backup/2017_NHTS_US/GEO/hhctbg.csv') # restricted-use home block group file 
 work <- read.csv('F:/3 Study/0 medium term backup/2017_NHTS_US/GEO/workct.csv') # restricted-use work/school tract file
 
-bg <- read.dbf(paste0(filepath, "/06_Shapefile/Blkgrp/Blkgrp_50topUA.dbf")) # from a preprocessed shapefile 
+# from a preprocessed shapefile 
+bg <- read.dbf(paste0(filepath, "/06_Shapefile/Blkgrp/Blkgrp_50topUA.dbf")) 
+head(bg)
 colnames(bg) <- c("HHSTFIPS","HHCNTYFP","HHCT","HHBG", "GEOID", 
                   "ALAND", "AWATER", "UACE10", "WGS84x","WGS84y")
+
 bgd <- bg[, c("GEOID", "ALAND", "UACE10")]
+map_chr(bgd, class)
 bgd$GEOID <- as.character(bgd$GEOID)
 bgd$HHSTFIPS <- as.integer(substr(bgd$GEOID, 1, 2))
 bgd$HHCNTYFP <- as.integer(substr(bgd$GEOID, 3, 5))
@@ -73,12 +77,19 @@ bgd$HHBG <- as.integer(substr(bgd$GEOID, 12, 12))
 bgd <- bgd[, c("HHSTFIPS","HHCNTYFP","HHCT","HHBG", "GEOID", 
                "ALAND", "UACE10")]
 bgd$tr <- substr(bgd$GEOID, 1, 11)
+head(bgd)
+
 trd <- ddply(bgd, "tr", numcolwise(mean))[, c("tr", "UACE10")]
 colnames(trd)[1] <- "GEOID"
+
+trd %>% as_tibble() %>%
+  select(GEOID) %>% 
+  n_distinct() # 32949 unqiue tracts  
+
+
 #write.csv(trd, "C:/Users/ylee366/Dropbox (GaTech)/3a_ResearchCEE/09_Uber_NHTS/11_Scratch/trd.csv")
 
-#2. Merge datasets  
-
+# Merge datasets  
 hhs <- hh[, c("HOUSEID", "TDAYDATE", "HH_RACE",  "HH_HISP", "LIF_CYC", "HHSIZE", "NUMADLT", "NUMCHILD",
               "YOUNGCHILD", "WRKCOUNT", "DRVRCNT", "HHFAMINC","HOMEOWN","HHVEHCNT",  
               "PC", "SPHONE", "TAB", "WEBUSE17", "TAXI", "SCRESP", "WTHHFIN")] #SCRESP = PERSONID
@@ -87,11 +98,15 @@ pers <- per[, c("HOUSEID", "PERSONID", "R_RELAT", "R_SEX", "R_AGE", "R_HISP", "R
                 "FLEXTIME", "GT1JBLWK", "OCCAT", "WKRMHM", "WKFMHMXX", "MEDCOND", 
                 "NBIKETRP", "BIKE4EX", "NWALKTRP", "WALK4EX", "PTUSED", "RIDESHARE", "DELIVER", "YEARMILE", 
                 "WTPERFIN")] 
+
 hhs <- merge(hhs, home, by="HOUSEID")
 pers <- merge(pers, work[, c("HOUSEID", "PERSONID", "WKSTFIPS", "WKCNFIPS", "WORKCT")], 
               by=c("HOUSEID", "PERSONID"))
 hhp <- merge(hhs, pers, by=c("HOUSEID"))
 hhpbg <- merge(hhp, bgd, by=c("HHSTFIPS","HHCNTYFP","HHCT","HHBG"))
+head(hhpbg)
+hhpbg %>% select(tr) %>% n_distinct() #14861 unique tracts 
+
 rm("home", "work", "hh", "per", "hhs", "pers", "hhp", "bg")
 
 
@@ -101,24 +116,20 @@ rm("home", "work", "hh", "per", "hhs", "pers", "hhp", "bg")
 
 
 
-#3. Prepare outcome/covariates for PSM models 
 
-#3.1. Append land-use variables using tidycensus 
+
+# Step 2. prepare BE attributes -------------------------------------------
 
 # https://cran.r-project.org/web/packages/tidycensus/tidycensus.pdf
 # readRenviron("~/.Renviron") # First time, reload your environment so you can use the key without restarting R.
 # Sys.getenv("CENSUS_API_KEY") # You can check it with:
 # census_api_key("3b1d8912e33aa2d4c01bf1abc84729cfeb7cd6cd", install = TRUE, overwrite=TRUE)
 
-#hhsub <- hhpbg[, c("HOUSEID", "GEOID")]
-#hhsub$GEOID <- substr(hhsub$GEOID, 1, 11)
-#rm("hhsub")
-
-var.acs <- load_variables(2017, "acs5", cache = TRUE)
+# var.acs <- load_variables(2017, "acs5", cache = TRUE)
 # var.acs %>%
 #   filter(grepl("^YEAR STRUCTURE BUILT", concept))
 
-# ------------------------------------------------------------------------------------------------------
+# --- 
 # In the previous round 
 # 1 B25024_001 Estimate!!Total                   UNITS IN STRUCTURE
 # 2 B25024_002 Estimate!!Total!!1 detached       UNITS IN STRUCTURE
@@ -132,25 +143,25 @@ var.acs <- load_variables(2017, "acs5", cache = TRUE)
 # varlist <- c("B25024_001", "B25024_002", "B25024_003","B25018_001", 
 #              "B01001_001", 
 #              "B08201_001", "B08201_006", "B08006_001", "B08006_008") 
-# ------------------------------------------------------------------------------------------------------
+# --- 
 # In the current round 
 # 1 density 
 # pop         B01001_001 Estimate!!Total SEX BY AGE
 # job         
 # housing     Total-B25024_001, SFH-B25024_002:B25024_003, MFH-B25024_004:B25024_009
-# ------------------------------------------------------------------------------------------------------
+# --- 
 # 2 diversity 
 # % multifamily             MFH-B25024_004:B25024_009
 # % renter occupied units   Total-B25003_001, Owner-B25003_002, Renter-B25003_003
 # job per housing 
 # retail/service job per housing 
 # landuse entropy (with housing)
-# ------------------------------------------------------------------------------------------------------
+# --- 
 # 3 design 
-# median blockgroup area/length
-# bikescore
-# walkscore
-# fourway intersection density 
+# median blockgroup area/length block-level tiger shapefiles are needed; 
+# bikescore - tract centroids & webscraping 
+# walkscore - tract centroids & webscraping  
+# fourway intersection density - OSM in R? 
 # street miles per sqmi 
 # structure built year      B25034_001:B25034_011
 # 1 B25034_001 Estimate!!Total                        YEAR STRUCTURE BUILT
@@ -164,58 +175,29 @@ var.acs <- load_variables(2017, "acs5", cache = TRUE)
 # 9 B25034_009 Estimate!!Total!!Built 1950 to 1959    YEAR STRUCTURE BUILT
 # 10 B25034_010 Estimate!!Total!!Built 1940 to 1949    YEAR STRUCTURE BUILT
 # 11 B25034_011 Estimate!!Total!!Built 1939 or earlier YEAR STRUCTURE BUILT
-# ------------------------------------------------------------------------------------------------------
+# --- 
 # 4 destination access (regional access)
-# jobs within 45 min by driving
-# network distance to CBD
+# jobs within 45 min by driving - from SLD
+# network distance to CBD - 
 # certain types of businesses density 
-# ------------------------------------------------------------------------------------------------------
+# --- 
 # 5 distance to transit (transit level of service)
 # transit score 
 # alltransit indices 
+# distance to the nearest fixed-guideway transit facilities 
+
 
 var.acs %>%
   filter(grepl("^YEAR STRUCTURE BUILT", concept))
 
-varlist <- c("B01001_001", 
+varlist <- c("B01001_001", "B11016_001", 
+             "B08301_001", "B08301_010", "B08301_018", "B08301_019", 
              "B25024_001", "B25024_002", "B25024_003", "B25024_004", "B25024_005", 
              "B25024_006", "B25024_007", "B25024_008", "B25024_009", 
              "B25003_001", "B25003_002", "B25003_003", 
              "B25034_001", "B25034_002", "B25034_003", "B25034_004", "B25034_005", 
              "B25034_006", "B25034_007", "B25034_008", "B25034_009", "B25034_010", 
              "B25034_011") 
-
-# ST <- c("AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL", "GA", "IL", 
-#         "IN", "KS", "KY", "LA", "MD", "MA", "MI", "MN", "MS", "MO",
-#         "NV", "NH", "NJ", "NY", "NC", "OH", "OK", "OR", "PA", "RI",
-#         "SC", "TN", "TX", "UT", "VA", "WA", "WI")
-
-# test <- trd %>%
-#   as_tibble(.) %>%
-#   separate(GEOID, c("ST", "NonST"), sep = 2) %>%
-#   mutate(
-#     CNTY = substr(NonST, 1, 3), 
-#     TR = substr(NonST, 4, 9), 
-#     UACE10 = as.character(UACE10)
-#   ) %>%
-#   select(ST, CNTY, TR, UACE10)
-
-# be_st <- trd 
-# beall <- NULL 
-# for(i in 1:37) {
-#   be_st <- trd
-#   for (j in 1:9) {
-#     temp <- NULL
-#     temp <- get_acs(geography = "tract", state = ST[i], variables = varlist[j], year=2017, 
-#                     cache_table = TRUE)
-#     temp <- temp[, c("GEOID", "estimate")]
-#     colnames(temp) <- c("GEOID", paste(varlist[j], "est", sep=""))  
-#     be_st <- merge(be_st, temp, by="GEOID")
-#   }
-#   beall <- rbind(beall, be_st)
-# }
-# str(beall)
-## View(beall)
 
 list_stcnty <- trd %>%
   as_tibble(.) %>%
@@ -224,52 +206,120 @@ list_stcnty <- trd %>%
   separate(STCNTY, c("ST", "CNTY"), sep=2) %>%
   select(ST, CNTY)
 
-#output <- vector("list", nrow(list_stcnty))
+#--- this is the first setup. Run once, then NEVER re-run. 
+output <- vector("list", nrow(list_stcnty))
+x <- 1
 
-x <- output %>% 
-  detect_index(~ is.null(.)) # position of the first element where a condition is true
+#--- this is another setup for repeating run. Repeat until the API query ends. 
+# x <- output %>%
+#   detect_index(~ is.null(.)) # position of the first element where a condition is true
+# 
+# for (i in x:nrow(list_stcnty)){
+#   result1 <-
+#     get_acs(geography = "tract", state = list_stcnty$ST[i], county = list_stcnty$CNTY[i],
+#             variables = varlist, year=2017, output = "wide", cache_table = TRUE) %>%
+#     select(-NAME, -ends_with("M"))
+#   result2 <- result1 %>%
+#     mutate(
+#       pop = B01001_001E,
+#       hu_total = B25024_001E,
+#       hu_sfh = B25024_002E + B25024_003E,
+#       hu_mfh = B25024_004E + B25024_005E + B25024_006E + B25024_007E + B25024_008E + B25024_009E,
+#       pctsfh = ifelse(B25024_001E>0, hu_sfh/B25024_001E*100, 0),
+#       pctmfh = ifelse(B25024_001E>0, hu_mfh/B25024_001E*100, 0),
+#       pctrenter = ifelse(B25003_001E>0, B25003_003E/B25003_001E*100, 0),
+#       pctbuilt_bf50 = ifelse(B25034_001E>0, (B25034_010E + B25034_011E)/B25034_001E*100, 0),
+#       pctbuilt_5069 = ifelse(B25034_001E>0, (B25034_008E + B25034_009E)/B25034_001E*100, 0),
+#       pctbuilt_7089 = ifelse(B25034_001E>0, (B25034_006E + B25034_007E)/B25034_001E*100, 0),
+#       pctbuilt_9009 = ifelse(B25034_001E>0, (B25034_004E + B25034_005E)/B25034_001E*100, 0),
+#       pctbuilt_10af = ifelse(B25034_001E>0, (B25034_002E + B25034_003E)/B25034_001E*100, 0)
+#     ) %>%
+#     select(-ends_with("E"))
+#   output[[i]] <- result2
+#   Sys.sleep(runif(n= 1, min=3, max=6))
+# }
 
-for (i in x:nrow(list_stcnty)){
-  result1 <- 
-    get_acs(geography = "tract", state = list_stcnty$ST[i], county = list_stcnty$CNTY[i], 
-            variables = varlist, year=2017, output = "wide", cache_table = TRUE) %>%
-    select(-NAME, -ends_with("M"))
-  result2 <- result1 %>%
-    mutate(
-      pop = B01001_001E,
-      hu_total = B25024_001E,
-      hu_sfh = B25024_002E + B25024_003E,
-      hu_mfh = B25024_004E + B25024_005E + B25024_006E + B25024_007E + B25024_008E + B25024_009E,
-      pctsfh = ifelse(B25024_001E>0, hu_sfh/B25024_001E*100, 0), 
-      pctmfh = ifelse(B25024_001E>0, hu_mfh/B25024_001E*100, 0), 
-      pctrenter = ifelse(B25003_001E>0, B25003_003E/B25003_001E*100, 0), 
-      pctbuilt_bf50 = ifelse(B25034_001E>0, (B25034_010E + B25034_011E)/B25034_001E*100, 0),
-      pctbuilt_5069 = ifelse(B25034_001E>0, (B25034_008E + B25034_009E)/B25034_001E*100, 0),
-      pctbuilt_7089 = ifelse(B25034_001E>0, (B25034_006E + B25034_007E)/B25034_001E*100, 0), 
-      pctbuilt_9009 = ifelse(B25034_001E>0, (B25034_004E + B25034_005E)/B25034_001E*100, 0),
-      pctbuilt_10af = ifelse(B25034_001E>0, (B25034_002E + B25034_003E)/B25034_001E*100, 0) 
-    ) %>% 
-    select(-ends_with("E"))
-  output[[i]] <- result2 
-  Sys.sleep(runif(n= 1, min=3, max=6))
+#--- this is the third setup, and this time it is for a single run without stop. 
+#--- Once it is run, check any missing elements, and rerun once more only for those missing elements   
+# 2/19/2019 Tuesday 
+# How about using map function? 
+# instead of running for loops, run a function for each list element at a time. 
+# when an error occurs, make the function return NA, and move on (make a new API call). 
+# inside the function, use tryCatch that returns NA for an error, otherwise go to next operations 
+# https://stackoverflow.com/questions/12193779/how-to-write-trycatch-in-r
+# https://stackoverflow.com/questions/46104176/how-to-run-a-function-multiple-times-and-write-the-results-to-a-list
+
+function_api <- function(x){
+  tryCatch(
+    {
+      result1 <- get_acs(geography = "tract", state = list_stcnty$ST[x], county = list_stcnty$CNTY[x],
+                         variables = varlist, year=2017, output = "wide", cache_table = TRUE) %>%
+        select(-NAME, -ends_with("M"))
+      result2 <- result1 %>%
+        mutate(
+          pop = B01001_001E,
+          hh  = B11016_001E, 
+          hu_total = B25024_001E,
+          hu_sfh   = B25024_002E + B25024_003E,
+          hu_mfh   = B25024_004E + B25024_005E + B25024_006E + B25024_007E + B25024_008E + B25024_009E,
+          pctsfh   = ifelse(B25024_001E>0, hu_sfh/B25024_001E*100, 0), 
+          pctmfh   = ifelse(B25024_001E>0, hu_mfh/B25024_001E*100, 0), 
+          hu_occ   = B25003_001E, 
+          pctowner  = ifelse(B25003_001E>0, B25003_002E/B25003_001E*100, 0), 
+          pctrenter = ifelse(B25003_001E>0, B25003_003E/B25003_001E*100, 0), 
+          commuter_all = B08301_001E, 
+          commuter_pct_tr = ifelse(B08301_001E>0, B08301_010E/B08301_001E*100, 0), 
+          commuter_pct_bk = ifelse(B08301_001E>0, B08301_018E/B08301_001E*100, 0),  
+          commuter_pct_wk = ifelse(B08301_001E>0, B08301_019E/B08301_001E*100, 0),  
+          pctbuilt_bf50 = ifelse(B25034_001E>0, (B25034_010E + B25034_011E)/B25034_001E*100, 0),
+          pctbuilt_5069 = ifelse(B25034_001E>0, (B25034_008E + B25034_009E)/B25034_001E*100, 0),
+          pctbuilt_7089 = ifelse(B25034_001E>0, (B25034_006E + B25034_007E)/B25034_001E*100, 0), 
+          pctbuilt_9009 = ifelse(B25034_001E>0, (B25034_004E + B25034_005E)/B25034_001E*100, 0),
+          pctbuilt_10af = ifelse(B25034_001E>0, (B25034_002E + B25034_003E)/B25034_001E*100, 0) 
+        ) %>% 
+        select(-ends_with("E"))
+      output[[x]] <<- result2    
+    }, 
+    error=function(cond) {
+      message("Here's the original error message:")
+      message(cond)
+      output[[x]] <<- NA
+    }
+  )
 }
 
-# beall2 <- bind_rows(output)
+map(x:nrow(list_stcnty), function_api) # this updates output for each iteration 
 
-# write_rds(beall2, "C:/Users/ylee366/Dropbox (GaTech)/3a_ResearchCEE/09_Uber_NHTS/05_Census/beall2.rds")
-beall2 <- read_rds("C:/Users/ylee366/Dropbox (GaTech)/3a_ResearchCEE/09_Uber_NHTS/05_Census/beall2.rds")
+map_lgl(output, is.list)
+
+positions_ok <-
+  c(1:302)[map_lgl(output, is.list)]      # subsetting a vector 1:302 to extract the positions with valid results  
+positions_na <-
+  c(1:302)[map_lgl(output, ~!is.list(.))] # subsetting a vector 1:302 to extract the positions with NA 
+
+write_rds(output, "C:/Users/ylee366/Dropbox (GaTech)/3e_Class/AdvGIS_Spring2019/Week08/output_3NAs.rds")
+
+map(positions_na, function_api)
+
+map_lgl(output, is.list)
+
+positions_ok <-
+  c(1:302)[map_lgl(output, is.list)]      # subsetting a vector 1:302 to extract the positions with valid results  
+positions_na <-
+  c(1:302)[map_lgl(output, ~!is.list(.))] # subsetting a vector 1:302 to extract the positions with NA 
+
+beall2 <- bind_rows(output)
+write_rds(beall2, paste0(filepath, "/05_Census/beall2.rds"))
+# beall2 <- read_rds(paste0(filepath, "/05_Census/beall2.rds"))
+
+beall2$GEOID %>% 
+  n_distinct() # 38,597 tracts in 302 counties, greater than 32,949 tracts in the top 50 UAs 
 
 
-# beall$pctsfh <- ifelse(beall$B25024_001est>0, (beall$B25024_002est + beall$B25024_003est)/beall$B25024_001est *100, 0)
-# beall$mednrm <- beall$B25018_001est  
-# beall$pcth4v <- ifelse(beall$B08201_001est>0, beall$B08201_006est/beall$B08201_001est *100, 0)
-# beall$pctctr <- ifelse(beall$B08006_001est>0, beall$B08006_008est/beall$B08006_001est *100, 0)
-# beall2 <- beall[, c("GEOID", "UACE10", "pctsfh", "mednrm", "B01001_001est", "pcth4v", "pctctr")]  
-
-# tigris_cache_dir("C:/Users/yongs/Dropbox (GaTech)/3a_ResearchCEE/09_Uber_NHTS/05_Census/tigris")
+# --- extract vales from tiger/line shapefiles 
+tigris_cache_dir(paste0(filepath, "/05_Census/tigris"))
 readRenviron('~/.Renviron')
 options(tigris_use_cache=TRUE)
-
 
 # https://www.census.gov/quickfacts/fact/note/US/LND110210
 # unit: square meter -> square mile
@@ -285,61 +335,205 @@ for(i in seq_along(list_stcnty[[1]])){
 }
 output2b <- dplyr::bind_rows(output2a)
 head(output2b)
+# write_rds(output2b, paste0(filepath, "/05_Census/output2b.rds"))
+output2b <- read_rds(paste0(filepath, "/05_Census/output2b.rds"))
 
-output2b <- beall2 %>%
-  left_join(trd) %>%
-  left_join(output2b) %>%
+sum(is.na(output2b)) # sqmile: no missing
+n_distinct(output2b$GEOID) # 38,543 tracts in 302 counties 
+nrow(output2b)
+
+output2c <- beall2 %>% # 38,597 tracts in 302 counties (tidycensus::get_acs)
+  right_join(as_tibble(trd)) %>% # 32,949 tracts in the top 50 UAs (separately processed via ArcMAP)
+  left_join(as_tibble(output2b)) %>% # 38,543 tracts in 302 counties (tigris::tracts)
+  select(GEOID, UACE10, sqmile, pop, hh, hu_total, hu_sfh, hu_mfh, everything())
+
+# write_rds(output2c, paste0(filepath, "/05_Census/output2c.rds"))
+output2c <- read_rds(paste0(filepath, "/05_Census/output2c.rds"))
+# identical( , )
+
+nrow(output2c) # 32,949 tracts in top 50 UAs
+n_distinct(output2c$GEOID)
+sum(is.na(output2c))
+
+# --- extract vales from LEHD
+# https://lehd.ces.census.gov/doc/help/onthemap/OnTheMapDataOverview.pdf
+# https://github.com/jamgreen/lehdr
+
+# define a function that collects work-area job counts at the tract level 
+function_lodes_wac <- function(x){
+  grab_lodes(state = x, year = 2015, lodes_type = "wac", job_type = "JT00", 
+             segment = "S000", state_part = "main", agg_geo = "tract", 
+             download_dir = paste0(filepath, "/05_Census/lodes"))
+}
+
+# make a character vector of 37 state abbr.  
+list_st_fips <- as.data.frame(
+  st_fips <- names(table(list_stcnty$ST))
+)
+colnames(list_st_fips) <- "st_fips"
+list_st_lookup <- read_csv(paste0(filepath, "/05_Census/list_fips_st.csv"))
+list_st_names <- left_join(list_st_fips, list_st_lookup, by = c("st_fips" = "fips_st"))$st
+
+# run a map function that iterates over 37 states 
+lodes_wac <- vector("list", length(list_st_names))
+lodes_wac <- map(list_st_names, function_lodes_wac)
+
+sum(is.na(dplyr::bind_rows(lodes_wac)))
+
+jobs_tract_df <- dplyr::bind_rows(lodes_wac) %>%
   mutate(
-    den_pop = pop/sqmile,  
-    den_hu  = hu_total/sqmile        # not standardized yet
-  ) %>% 
-  group_by(UACE10) %>%
-  select(GEOID, UACE10, sqmile, pop, hu_total, hu_sfh, hu_mfh, den_pop, den_hu, everything())
+    jobs = C000, 
+    E5_Ret15 = CNS07,                                                  # retail 
+    E5_Off15 = CNS09 + CNS10 + CNS11 + CNS13 + CNS20,                  # office
+    E5_Ind15 = CNS01 + CNS02 + CNS03 + CNS04 + CNS05 + CNS06 + CNS08,  # industrial 
+    E5_Svc15 = CNS12 + CNS14 + CNS15 + CNS16 + CNS19,                  # service
+    E5_Ent15 = CNS17 + CNS18                                           # entertainment 
+  ) %>%
+  select(w_tract, jobs, E5_Ret15, E5_Off15, E5_Ind15, E5_Svc15, E5_Ent15)
 
-# write_rds(output2b, "C:/Users/ylee366/Dropbox (GaTech)/3a_ResearchCEE/09_Uber_NHTS/05_Census/output2b.rds")
-# temp <- read_rds("C:/Users/ylee366/Dropbox (GaTech)/3a_ResearchCEE/09_Uber_NHTS/05_Census/output2b.rds")
-# identical(output2b, temp)
+# define a function that collects home-area job counts (in fact, worker counts) at the tract level 
+function_lodes_rac <- function(x){
+  grab_lodes(state = x, year = 2015, lodes_type = "rac", job_type = "JT00", 
+             segment = "S000", state_part = "main", agg_geo = "tract", 
+             download_dir = paste0(filepath, "/05_Census/lodes"))
+}
+
+lodes_rac <- vector("list", length(list_st_names))
+lodes_rac <- map(list_st_names, function_lodes_rac)
+workers_tract_df <- dplyr::bind_rows(lodes_rac) %>% 
+    select(h_tract, workers = C000)
+
+output2c %>% 
+  left_join(jobs_tract_df, by = c("GEOID" = "w_tract")) %>%
+  left_join(workers_tract_df, by = c("GEOID" = "h_tract")) %>%
+  names()
+
+# merge back to the previous tidycensus outcome 
+output3a <- output2c %>% 
+  left_join(jobs_tract_df, by = c("GEOID" = "w_tract")) %>%
+  left_join(workers_tract_df, by = c("GEOID" = "h_tract")) %>%
+  mutate(
+    den_pop = pop/sqmile, 
+    den_hh  = hh/sqmile, 
+    den_hu  = hu_total/sqmile, 
+    den_job = jobs/sqmile, 
+    job_per_hh = ifelse(hh >0, jobs/hh, 0),  
+    job_per_hu = ifelse(hu_total, jobs/hu_total, 0), 
+    job_per_worker = ifelse(workers>0, jobs/workers, 0)
+    ) %>%
+  select(-pop, -hh, -hu_total, -hu_sfh, -hu_mfh, -hu_occ) %>%
+  select(GEOID, UACE10, sqmile, den_pop, den_hh, den_hu, den_job, job_per_hh, job_per_hu, job_per_worker, everything())
+
+output3b <- output3a %>%
+  select(GEOID, E5_Ret15:E5_Ent15) %>% 
+  gather(E5_Ret15:E5_Ent15, key = "industry", value = "count") %>%
+  filter(count>0) %>%
+  arrange(GEOID) %>%
+  group_by(GEOID) %>%
+  mutate(
+    n = n(), 
+    job_total = sum(count), 
+    sh = count/job_total, 
+    lnsh = log(sh), 
+    sh_lnsh = sh*lnsh
+  ) %>%
+  summarize(entropy = -sum(sh_lnsh)/log(mean(n))) %>%
+  mutate(
+    entropy = ifelse(is.nan(entropy) == TRUE, 0, entropy) # 141 tracts with only one industry
+  )
+
+output4 <- output3a %>%
+  left_join(output3b) %>%
+  select(-jobs, -E5_Ret15, -E5_Off15, -E5_Ind15, -E5_Svc15, -E5_Ent15, -workers, -commuter_all)
+
+# write_rds(output4, paste0(filepath, "/05_Census/output4.rds"))
+output4 <- read_rds(paste0(filepath, "/05_Census/output4.rds"))
 
 
+# --- read in EPA SLD 
+temp <- read.dbf(paste0(filepath, "/04_SLD/SmartLocationDb.dbf"), as.is = TRUE) # read in character as character
 
-# beall3 <- temp3[, c("GEOID", "UACE10", "pctsfh", "mednrm", "popden", "pcth4v", "pctctr")]
-# beall3a <- ddply(beall3,  c("UACE10"), transform, pctsfh.std=scale(pctsfh))
-# beall3b <- ddply(beall3a, c("UACE10"), transform, mednrm.std=scale(mednrm))
-# beall3c <- ddply(beall3b, c("UACE10"), transform, popden.std=scale(popden))
-# beall3d <- ddply(beall3c, c("UACE10"), transform, pcth4v.std=scale(pcth4v))
-# beall3e <- ddply(beall3d, c("UACE10"), transform, pctctr.std=scale(pctctr))
-# beall4 <- beall3e[, c("GEOID", "UACE10", "pctsfh.std", "mednrm.std", "popden.std", "pcth4v.std", "pctctr.std")]
+output5 <- temp %>% 
+  as.tibble() %>%
+  mutate(GEOID = substr(GEOID10, 1, 11)) %>%
+  right_join(output4) %>%
+  group_by(GEOID) %>%
+  summarize(
+    nblkgrp = n(), 
+    D3a.w    = weighted.mean(D3a,    TOTPOP10, na.rm = TRUE), 
+    D3aao.w  = weighted.mean(D3aao,  TOTPOP10, na.rm = TRUE), 
+    D3amm.w  = weighted.mean(D3amm,  TOTPOP10, na.rm = TRUE), 
+    D3apo.w  = weighted.mean(D3apo,  TOTPOP10, na.rm = TRUE), 
+    D3b.w    = weighted.mean(D3b,    TOTPOP10, na.rm = TRUE), 
+    D3bao.w  = weighted.mean(D3bao,  TOTPOP10, na.rm = TRUE), 
+    D3bmm3.w = weighted.mean(D3bmm3, TOTPOP10, na.rm = TRUE), 
+    D3bmm4.w = weighted.mean(D3bmm4, TOTPOP10, na.rm = TRUE), 
+    D3bpo3.w = weighted.mean(D3bpo3, TOTPOP10, na.rm = TRUE), 
+    D3bpo4.w = weighted.mean(D3bpo4, TOTPOP10, na.rm = TRUE),
+    D5ar.w   = weighted.mean(D5ar,   TOTPOP10, na.rm = TRUE) 
+  )
 
-# rm("temp", "temp2", "temp3")
-# rm("beall", "be_st", "beall2", "beall3", "beall3a", "beall3b", "beall3c", "beall3d", "beall3e")
+output6 <- output4 %>% left_join(output5)
+# write_rds(output6, paste0(filepath, "/05_Census/output6.rds"))
+output6 <- read_rds(paste0(filepath, "/05_Census/output6.rds"))
 
+names(output6)
+
+output6 <- left_join(output2c["GEOID"], output6)
 
 #3.2. Run exploratory factor analysis on five LU measures, standardized by UA 
 
 #https://cran.r-project.org/web/packages/psych/psych.pdf
 #http://personality-project.org/r/psych/HowTo/factor.pdf
 
-beall5 <- beall4[!(is.na(beall4$pctsfh.std)==TRUE | is.na(beall4$mednrm.std)==TRUE | is.na(beall4$popden.std)==TRUE | 
-                   is.na(beall4$pcth4v.std)==TRUE | is.na(beall4$pctctr.std)==TRUE ), 
-                 c("GEOID", "pctsfh.std", "mednrm.std", "popden.std", "pcth4v.std", "pctctr.std")]
+# beall5 <- beall4[!(is.na(beall4$pctsfh.std)==TRUE | is.na(beall4$mednrm.std)==TRUE | is.na(beall4$popden.std)==TRUE | 
+#                    is.na(beall4$pcth4v.std)==TRUE | is.na(beall4$pctctr.std)==TRUE ), 
+#                  c("GEOID", "pctsfh.std", "mednrm.std", "popden.std", "pcth4v.std", "pctctr.std")]
 
-fit1 <- fa(beall5[, 2:6], nfactors=1, rotate = "oblimin", scores="Bartlett", fm="pa", SMC=TRUE, covar=FALSE)
-fit2 <- fa(beall5[, 2:6], nfactors=1, rotate = "oblimin", scores="Bartlett", fm="ml", SMC=TRUE, covar=FALSE)
-fit2
-beall5$den <- as.numeric(fit2$scores)*(-1)
-beall6 <- beall5[, c("GEOID", "den")]
-beall7 <- merge(beall4, beall6, by="GEOID")
+# fit1 <- fa(beall5[, 2:6], nfactors=1, rotate = "oblimin", scores="Bartlett", fm="pa", SMC=TRUE, covar=FALSE)
+# fit2 <- fa(beall5[, 2:6], nfactors=1, rotate = "oblimin", scores="Bartlett", fm="ml", SMC=TRUE, covar=FALSE)
+# fit2
 
-rm("beall4", "beall5", "beall6")
-rm("fit1", "fit2")
- 
-write.csv(beall7, "M:/Uber_NHTS/11_Scratch/beall7.csv")
+# beall5$den <- as.numeric(fit2$scores)*(-1)
+# beall6 <- beall5[, c("GEOID", "den")]
+# beall7 <- merge(beall4, beall6, by="GEOID")
+# write.csv(beall7, "M:/Uber_NHTS/11_Scratch/beall7.csv")
+# beall7 <- read.csv("M:/Uber_NHTS/11_Scratch/beall7.csv")
+# beall7[, 1] <- NULL 
+# beall7$GEOID <- as.character(beall7$GEOID)
+# beall7$GEOID <- ifelse(nchar(beall7$GEOID)==10, paste("0", beall7$GEOID, sep=""), beall7$GEOID)
+
+map_dbl(output6, ~sum(is.na(.)))
+
+output7 <- output6 %>%
+  mutate(
+    den_pop = ifelse(is.na(den_pop) == TRUE, 0, den_pop), 
+    den_hh  = ifelse(is.na(den_hh)  == TRUE, 0, den_hh), 
+    den_hu  = ifelse(is.na(den_hu)  == TRUE, 0, den_hu), 
+    den_job = ifelse(is.na(den_job) == TRUE, 0, den_job), 
+    job_per_hh = ifelse(is.na(job_per_hh) == TRUE, 0, job_per_hh), 
+    job_per_hu = ifelse(is.na(job_per_hu) == TRUE, 0, job_per_hu), 
+    job_per_worker = ifelse(is.na(job_per_worker) == TRUE, 0, job_per_worker), 
+    entropy = ifelse(is.na(entropy) == TRUE, 0, entropy)
+  )
+
+map_dbl(output7, ~sum(is.na(.)))
+
+output8 <- output7[complete.cases(output7), ]
+
+fit1 <- fa(output8[, c(3:35)], nfactors=6, rotate = "oblimin", scores="Bartlett", fm="pa", SMC=TRUE, covar=FALSE)
+fit2 <- fa(output8[, c(3:35)], nfactors=6, rotate = "oblimin", scores="Bartlett", fm="ml", SMC=TRUE, covar=FALSE)
+
+fit1
+fit2$loadings
+
+install.packages("moments", dependencies = TRUE)
+library(moments)
 
 
-beall7 <- read.csv("M:/Uber_NHTS/11_Scratch/beall7.csv")
-beall7[, 1] <- NULL 
-beall7$GEOID <- as.character(beall7$GEOID)
-beall7$GEOID <- ifelse(nchar(beall7$GEOID)==10, paste("0", beall7$GEOID, sep=""), beall7$GEOID)
+
+
+
 
 
 #3.3. Append instrument variables for the use of Uber, which captures *exogenous* variation in Uber supply  
@@ -417,6 +611,7 @@ ivall4 <- read.csv("M:/Uber_NHTS/11_Scratch/ivall4.csv")
 ivall4[, 1] <- NULL
 ivall4$GEOID <- as.character(ivall4$GEOID)
 ivall4$GEOID <- ifelse(nchar(ivall4$GEOID)==10, paste("0", ivall4$GEOID, sep=""), ivall4$GEOID)
+
 
 
 #3.4. Scrape walkscore.com: using a different file of scripts 
@@ -853,6 +1048,10 @@ rm("temp1")
 nrow(data10)
 
 
+
+
+
+# Step 3. estimate binary logit/probit for balancing the final sam --------
 
 #4. PSM estimation 
 #4.1. Compute a new categorical variable, RS 

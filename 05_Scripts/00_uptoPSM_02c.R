@@ -1,27 +1,34 @@
 
+# Step 0. Basic setup: libraries & working directory ----------------------
 
 if (!require("foreign")) install.packages("foreign", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 if (!require("plyr")) install.packages("plyr", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 if (!require("tidyverse")) install.packages("tidyverse", repos = "http://cran.us.r-project.org", dependencies = TRUE)
-if (!require("sf")) install.packages("sf", repos = "http://cran.us.r-project.org", dependencies = TRUE)
-if (!require("tigris")) install.packages("tigris", repos = "http://cran.us.r-project.org", dependencies = TRUE)
-if (!require("tidycensus")) install.packages("tidycensus", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 
+if (!require("sf")) install.packages("sf", repos = "http://cran.us.r-project.org", dependencies = TRUE)
+if (!require("tidycensus")) install.packages("tidycensus", repos = "http://cran.us.r-project.org", dependencies = TRUE)
+if (!require("tigris")) install.packages("tigris", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 if (!require("devtools")) install.packages("devtools")
-devtools::install_github("jamgreen/lehdr")
+if (!require("lehdr")) devtools::install_github("jamgreen/lehdr")
+
+if (!require("mapview")) install.packages("mapview", repos = "http://cran.us.r-project.org", dependencies = TRUE)
+if (!require("mapview")) install.packages("mapview")
+if (!require("tmap")) install.packages("tmap", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 
 if (!require("psych")) install.packages("psych", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 if (!require("tableone")) install.packages("tableone", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 if (!require("MatchIt")) install.packages("MatchIt", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 
+
 library(foreign)
 library(plyr)
 library(tidyverse)
+
+library(sf)
 library(tidycensus)
 library(tigris)
-options(tigris_use_cache = TRUE)
-
 library(lehdr)
+library(tmap)
 
 library(psych)
 library(tableone)
@@ -42,308 +49,648 @@ if (dir.exists("C:/Users/Yongs/")){
 } else {
   filepath <- "C:/Users/ylee366/Dropbox (GaTech)/3a_ResearchCEE/09_Uber_NHTS"
 } 
+    
+options(tigris_use_cache = TRUE)
+tigris_cache_dir(paste0(filepath, "/05_Census/tigris"))
 
-#1. Read input files 
+# If tigris_cache_dir(paste0(filepath, "/05_Census/tigris")) doesn't work, 
+# Run below scripts line by line from the function.
+    path <- paste0(filepath, "/05_Census/tigris")
+    home <- Sys.getenv("HOME")
+    renv <- file.path(home, ".Renviron")
+    if (!file.exists(renv)) {
+      file.create(renv)
+    }
+    check <- readLines(renv)
+    if (isTRUE(any(grepl("TIGRIS_CACHE_DIR", check)))) {
+      oldenv <- read.table(renv, stringsAsFactors = FALSE)
+      newenv <- oldenv[-grep("TIGRIS_CACHE_DIR", oldenv), 
+                       ]
+      write.table(newenv, renv, quote = FALSE, sep = "\n", 
+                  col.names = FALSE, row.names = FALSE)
+    }
+    var <- paste0("TIGRIS_CACHE_DIR=", "'", path, "'")
+    write(var, renv, sep = "\n", append = TRUE)
+    message(sprintf("Your new tigris cache directory is %s. \nTo use now, restart R or run `readRenviron('~/.Renviron')`", 
+                    path))
 
-hh <- read.csv(paste0(filepath, "/03_NHTS/Csv/hhpub.csv"))
-## boxplot(HHVEHCNT ~ LIF_CYC, data=hh)
-per <- read.csv(paste0(filepath, "/03_NHTS/Csv/perpub.csv"))
-hh$NUMCHILD <- ifelse(hh$HHSIZE>=hh$NUMADLT, hh$HHSIZE-hh$NUMADLT, NA)
+readRenviron("~/.Renviron")
+Sys.getenv('TIGRIS_CACHE_DIR')
 
-#per$Under18 <- ifelse(per$R_AGE<18, 1, 0)
-#temp1 <- per[, c("HOUSEID", "Under18")]
-#temp1$HOUSEID <- as.character(temp1$HOUSEID)
-#temp2 <- ddply(temp1, .(HOUSEID), summarize, tot=sum(Under18))
-#temp2$HOUSEID <- as.integer(temp2$HOUSEID)
-#hh <- merge(hh, temp2, by="HOUSEID")
-#colnames(hh)[58] <- "NCHILD"
+# https://cran.r-project.org/web/packages/tidycensus/tidycensus.pdf
+if (Sys.getenv("CENSUS_API_KEY") != "3b1d8912e33aa2d4c01bf1abc84729cfeb7cd6cd"){
+  census_api_key("3b1d8912e33aa2d4c01bf1abc84729cfeb7cd6cd", install = TRUE, overwrite=TRUE)
+  readRenviron("~/.Renviron") # First time, reload your environment so you can use the key without restarting R.
+} 
+Sys.getenv("CENSUS_API_KEY")
 
-home <- read.csv('F:/3 Study/0 medium term backup/2017_NHTS_US/GEO/hhctbg.csv') # restricted-use home block group file 
-work <- read.csv('F:/3 Study/0 medium term backup/2017_NHTS_US/GEO/workct.csv') # restricted-use work/school tract file
 
-bg <- read.dbf(paste0(filepath, "/06_Shapefile/Blkgrp/Blkgrp_50topUA.dbf")) # from a preprocessed shapefile 
-colnames(bg) <- c("HHSTFIPS","HHCNTYFP","HHCT","HHBG", "GEOID", 
-                  "ALAND", "AWATER", "UACE10", "WGS84x","WGS84y")
-bgd <- bg[, c("GEOID", "ALAND", "UACE10")]
-bgd$GEOID <- as.character(bgd$GEOID)
-bgd$HHSTFIPS <- as.integer(substr(bgd$GEOID, 1, 2))
-bgd$HHCNTYFP <- as.integer(substr(bgd$GEOID, 3, 5))
-bgd$HHCT <- as.integer(substr(bgd$GEOID, 6, 11))  
-bgd$HHBG <- as.integer(substr(bgd$GEOID, 12, 12))
-bgd <- bgd[, c("HHSTFIPS","HHCNTYFP","HHCT","HHBG", "GEOID", 
-               "ALAND", "UACE10")]
-bgd$tr <- substr(bgd$GEOID, 1, 11)
-trd <- ddply(bgd, "tr", numcolwise(mean))[, c("tr", "UACE10")]
-colnames(trd)[1] <- "GEOID"
-#write.csv(trd, "C:/Users/ylee366/Dropbox (GaTech)/3a_ResearchCEE/09_Uber_NHTS/11_Scratch/trd.csv")
+# Step 1. Read in input files ------------------------------------------------
 
-#2. Merge datasets  
+### Task 1. Prepare a data frame of block group FIPS codes in top 50 UA (by popoulation in 2013-2017 ACS) ----
 
-hhs <- hh[, c("HOUSEID", "TDAYDATE", "HH_RACE",  "HH_HISP", "LIF_CYC", "HHSIZE", "NUMADLT", "NUMCHILD",
-              "YOUNGCHILD", "WRKCOUNT", "DRVRCNT", "HHFAMINC","HOMEOWN","HHVEHCNT",  
-              "PC", "SPHONE", "TAB", "WEBUSE17", "TAXI", "SCRESP", "WTHHFIN")] #SCRESP = PERSONID
-pers <- per[, c("HOUSEID", "PERSONID", "R_RELAT", "R_SEX", "R_AGE", "R_HISP", "R_RACE",  
+# start.time <- Sys.time() # https://stackoverflow.com/questions/6262203/measuring-function-execution-time-in-r
+# end.time <- Sys.time()
+# end.time - start.time
+
+st      <- states(cb = TRUE, resolution = "20m", year = 2017) 
+st_proj <- st %>% st_as_sf() %>% st_transform(crs = 3857) %>% select(GEOID, NAME)
+ua      <- urban_areas(cb = FALSE, year = 2017)  
+ua_proj <- ua %>% st_as_sf() %>% st_transform(crs = 3857) %>% select(UACE10, NAME10, ALAND10)
+
+# var.acs <- load_variables(2017, "acs5", cache = TRUE)
+ua_pop_raw <- get_acs(geography = "urban area", variables = c("B01001_001"), year = 2017, output ="wide") 
+
+ua_pop <-ua_pop_raw %>%
+  filter(grepl("San Juan, PR", NAME) == FALSE) %>%
+  mutate(pop2017 = B01001_001E, 
+         rank_pop = min_rank(desc(B01001_001E))) %>%
+  select(-NAME, -B01001_001E, -B01001_001M) %>%
+  arrange(rank_pop) %>%
+  filter(rank_pop<=50)
+
+ua50_proj <- ua_proj %>%
+  right_join(ua_pop, by = c("UACE10" = "GEOID")) %>%
+  arrange(rank_pop)
+
+list_st <- vector("list", 50)
+for (i in 1:50){
+  list_st[[i]] <- st_proj[ua50_proj[i, ], ]$GEOID
+}
+
+download_bg_sp <- function(x){
+  map(x, ~block_groups(state = ., cb = FALSE, year = 2017))
+}
+list_bg <- map(list_st, download_bg_sp) # this task took 14.57996 mins
+
+map_lgl(list_bg, is.null) 
+map(list_bg, ~class(.[[1]]))
+map_lgl(list_bg, ~class(.[[1]]) == "SpatialPolygonsDataFrame")
+
+list_bg_rb <- vector("list", 50)
+for (i in 1:50){
+  temp <- 
+    rbind_tigris(list_bg[[i]]) %>%
+    st_as_sf() %>%
+    select(GEOID, ALAND) %>% 
+    st_transform(crs = 3857)
+  rownames(temp) <- NULL 
+  list_bg_rb[[i]] <- temp 
+}
+
+write_rds(list_bg_rb, paste0(filepath, "/11_Scratch/list_bg_rb.rds"))
+# list_bg_rb <- read_rds(paste0(filepath, "/11_Scratch/list_bg_rb.rds"))
+
+list_bg_within <- vector("list", 50)
+for (i in 1:50){
+  list_bg_within[[i]] <- list_bg_rb[[i]] %>%
+    st_point_on_surface() %>% 
+    st_join(ua50_proj[i, ]) %>%  
+    filter(is.na(UACE10) == FALSE)
+}
+
+# a <- map_int(list_bg_rb, nrow)
+# b <- map_int(list_bg_within, nrow) 
+# (a - b)/a *100 
+
+write_rds(list_bg_within, paste0(filepath, "/11_Scratch/list_bg_within_centroid.rds")) # first converted to centroids 
+# list_bg_within <- read_rds(paste0(filepath, "/11_Scratch/list_bg_within_centroid.rds"))
+
+shorten <- function(x){
+  temp <- x[c("GEOID", "UACE10", "NAME10")]
+  st_geometry(temp) <- NULL
+  return(temp)
+}
+
+list_bg_df <- 
+  map(list_bg_within, shorten) %>%
+  bind_rows() %>%
+  as_tibble() %>%
+  mutate(NAME10 = gsub("--", "-", NAME10))
+
+write_rds(list_bg_df, paste0(filepath, "/11_Scratch/list_bg_centroid_df.rds")) # first converted to centroids 
+# list_bg_df <- read_rds(paste0(filepath, "/11_Scratch/list_bg_centroid_df.rds")) 
+
+## check if the same block groups belong to different UAs 
+# bg_multi <- list_bg_df %>%
+#   group_by(GEOID) %>%
+#   summarize(n = n()) %>%
+#   filter(n>1)
+# 
+# list_bg_df %>%
+#   semi_join(bg_multi) %>%
+#   arrange(GEOID)
+
+
+bgd <- list_bg_df %>%
+  select(-NAME10) %>%
+  mutate(
+    HHSTFIPS = substr(GEOID, 1, 2),
+    HHCNTYFP = substr(GEOID, 3, 5),
+    HHCT     = substr(GEOID, 6, 11),
+    HHBG     = as.integer(substr(GEOID, 12, 12)),
+    tr       = substr(GEOID, 1, 11)
+    ) %>%
+  select(HHSTFIPS, HHCNTYFP, HHCT, HHBG, GEOID, UACE10, tr)
+
+write_rds(bgd, paste0(filepath, "/11_Scratch/bgd.rds"))
+# bgd <- read_rds(paste0(filepath, "/11_Scratch/bgd.rds"))
+
+## check if a census tract is part of two UAs: two cases found 
+# bgd %>%
+#   group_by(tr) %>%
+#   summarize(nUA = n_distinct(UACE10)) %>%
+#   filter(nUA > 1)
+# # 1 25005611202     2
+# # 2 36119012502     2
+# 
+# quick_check <- function(x, y){
+#   x %>% filter(substr(GEOID, 1, 11) == y) %>% nrow()
+# }
+# 
+# c(1:50)[map_int(list_bg_within, function(x) quick_check(x, "25005611202")) > 0]
+# c(1:50)[map_int(list_bg_within, function(x) quick_check(x, "36119012502")) > 0]
+# 
+# ua50_proj$NAME10[map_int(list_bg_within, function(x) quick_check(x, "25005611202")) > 0]
+# ua50_proj$NAME10[map_int(list_bg_within, function(x) quick_check(x, "36119012502")) > 0]
+
+trd <- bgd %>%
+  group_by(tr, UACE10) %>%
+  summarize() # include two duplicates 
+  
+write_rds(trd, paste0(filepath, "/11_Scratch/trd.rds"))
+
+
+
+### Task 2. Read in and select variables of NHTS restricted-use data files ----
+
+hh <- read_csv(paste0(filepath, "/03_NHTS/Csv/hhpub.csv"))
+# colnames(hh)
+# boxplot(HHVEHCNT ~ LIF_CYC, data=hh)
+hh$NUMCHILD <- ifelse(hh$HHSIZE>=hh$NUMADLT, hh$HHSIZE-hh$NUMADLT, 0)
+# summary(hh$YOUNGCHILD)
+# summary(hh$NUMCHILD)
+per <- read_csv(paste0(filepath, "/03_NHTS/Csv/perpub.csv"))
+
+# the below files are not accessible from my laptop 
+home <- read_csv('F:/3 Study/0 medium term backup/2017_NHTS_US/GEO/hhctbg.csv') # restricted-use home block group file 
+work <- read_csv('F:/3 Study/0 medium term backup/2017_NHTS_US/GEO/workct.csv') # restricted-use work/school tract file
+
+# Merge datasets  
+hh2  <- hh[, c("HOUSEID", "TDAYDATE", "HH_RACE",  "HH_HISP", "LIF_CYC", "HHSIZE", "NUMADLT", "NUMCHILD",
+               "YOUNGCHILD", "WRKCOUNT", "DRVRCNT", "HHFAMINC","HOMEOWN","HHVEHCNT",  
+               "PC", "SPHONE", "TAB", "WEBUSE17", "TAXI", "SCRESP", "WTHHFIN")] #SCRESP = PERSONID
+per2 <- per[, c("HOUSEID", "PERSONID", "R_RELAT", "R_SEX", "R_AGE", "R_HISP", "R_RACE",  
                 "DRIVER", "EDUC", "DISTTOWK17", "NOCONG", "SCHTYP", "SCHTRN1", "WORKER", "WKFTPT", "WRKTRANS",
                 "FLEXTIME", "GT1JBLWK", "OCCAT", "WKRMHM", "WKFMHMXX", "MEDCOND", 
                 "NBIKETRP", "BIKE4EX", "NWALKTRP", "WALK4EX", "PTUSED", "RIDESHARE", "DELIVER", "YEARMILE", 
                 "WTPERFIN")] 
-hhs <- merge(hhs, home, by="HOUSEID")
-pers <- merge(pers, work[, c("HOUSEID", "PERSONID", "WKSTFIPS", "WKCNFIPS", "WORKCT")], 
+
+hh3  <- left_join(hh2, home, by="HOUSEID") # home blockgroup no missing 
+per3 <- left_join(per2, work[, c("HOUSEID", "PERSONID", "WKSTFIPS", "WKCNFIPS", "WORKCT")], 
               by=c("HOUSEID", "PERSONID"))
-hhp <- merge(hhs, pers, by=c("HOUSEID"))
-hhpbg <- merge(hhp, bgd, by=c("HHSTFIPS","HHCNTYFP","HHCT","HHBG"))
-rm("home", "work", "hh", "per", "hhs", "pers", "hhp", "bg")
+# per3 %>% filter(is.na(WORKCT) == TRUE) %>% nrow()
+# per3 %>% filter(WORKCT == -1) %>% nrow() # 49.25189% individuals with missing WORKCT 
+hhp <- left_join(hh3, per3, by=c("HOUSEID"))
+hhpbg <- left_join(hhp, bgd, by=c("HHSTFIPS","HHCNTYFP","HHCT","HHBG")) %>%
+  filter(is.na(UACE10) == FALSE) %>%
+  filter(nchar(WORKCT) == 6)
+# 37118/264234 0.140474 commuters in the top 50 UAs. 
+
+hhpbg %>% group_by(HHSTFIPS, HHCNTYFP, HHCT, HHBG) %>% summarize() %>% nrow() # 16,916 unique block groups
+hhpbg %>% select(tr) %>% n_distinct() # 11,424 unique tracts
+
+# rm("hh", "per", "home", "work", "hh2", "per2", "hh3", "per3", "hhp")
+
+# check annual miles driven & driver status 
+# table(hhpbg[hhpbg$YEARMILE<0, ]$YEARMILE)   #-88 I don't know -77 I prefer not to answer -9 not ascertained -1 appropriate skip
+# table(hhpbg[hhpbg$YEARMILE==-1, ]$DRIVER)   #-1 appropriate skip 2 non-driver
+# table(hhpbg[hhpbg$DRIVER==-1, ]$R_AGE)      # all cases under 15
 
 
-#table(hhpbg[hhpbg$YEARMILE<0, ]$YEARMILE)   #-88 I don't know -77 I prefer not to answer -9 not ascertained -1 appropriate skip
-#table(hhpbg[hhpbg$YEARMILE==-1, ]$DRIVER)   #-1 appropriate skip 2 non-driver
-#table(hhpbg[hhpbg$DRIVER==-1, ]$R_AGE)      # all cases under 15 
 
+# Step 2. prepare BE/neighborhood-level IV attributes -------------------------------------------
 
-
-#3. Prepare outcome/covariates for PSM models 
-
-#3.1. Append land-use variables using tidycensus 
-
-# https://cran.r-project.org/web/packages/tidycensus/tidycensus.pdf
-# readRenviron("~/.Renviron") # First time, reload your environment so you can use the key without restarting R.
-# Sys.getenv("CENSUS_API_KEY") # You can check it with:
-# census_api_key("3b1d8912e33aa2d4c01bf1abc84729cfeb7cd6cd", install = TRUE, overwrite=TRUE)
-
-#hhsub <- hhpbg[, c("HOUSEID", "GEOID")]
-#hhsub$GEOID <- substr(hhsub$GEOID, 1, 11)
-#rm("hhsub")
+### Task 1. Download ACS 2013-2017 for 300 st-cnty combinations ---- 
 
 var.acs <- load_variables(2017, "acs5", cache = TRUE)
 # var.acs %>%
 #   filter(grepl("^YEAR STRUCTURE BUILT", concept))
 
-# ------------------------------------------------------------------------------------------------------
-# In the previous round 
-# 1 B25024_001 Estimate!!Total                   UNITS IN STRUCTURE
-# 2 B25024_002 Estimate!!Total!!1 detached       UNITS IN STRUCTURE
-# 3 B25024_003 Estimate!!Total!!1 attached       UNITS IN STRUCTURE
-# 1 B25018_001 Estimate!!Median number of rooms MEDIAN NUMBER OF ROOMS
-# 1 B01001_001 Estimate!!Total SEX BY AGE
-# 1 B08201_001 Estimate!!Total                                           HOUSEHOLD SIZE BY VEHICLES AVAILABLE
-# 6 B08201_006 Estimate!!Total!!4 or more vehicles available             HOUSEHOLD SIZE BY VEHICLES AVAILABLE
-# 1 B08006_001 Estimate!!Total                                                        SEX OF WORKERS BY MEANS OF TRANSPORTATION T~
-# 8 B08006_008 Estimate!!Total!!Public transportation (excluding taxicab)             SEX OF WORKERS BY MEANS OF TRANSPORTATION T~
-# varlist <- c("B25024_001", "B25024_002", "B25024_003","B25018_001", 
-#              "B01001_001", 
-#              "B08201_001", "B08201_006", "B08006_001", "B08006_008") 
-# ------------------------------------------------------------------------------------------------------
-# In the current round 
-# 1 density 
-# pop         B01001_001 Estimate!!Total SEX BY AGE
-# job         
-# housing     Total-B25024_001, SFH-B25024_002:B25024_003, MFH-B25024_004:B25024_009
-# ------------------------------------------------------------------------------------------------------
-# 2 diversity 
-# % multifamily             MFH-B25024_004:B25024_009
-# % renter occupied units   Total-B25003_001, Owner-B25003_002, Renter-B25003_003
-# job per housing 
-# retail/service job per housing 
-# landuse entropy (with housing)
-# ------------------------------------------------------------------------------------------------------
-# 3 design 
-# median blockgroup area/length
-# bikescore
-# walkscore
-# fourway intersection density 
-# street miles per sqmi 
-# structure built year      B25034_001:B25034_011
-# 1 B25034_001 Estimate!!Total                        YEAR STRUCTURE BUILT
-# 2 B25034_002 Estimate!!Total!!Built 2014 or later   YEAR STRUCTURE BUILT
-# 3 B25034_003 Estimate!!Total!!Built 2010 to 2013    YEAR STRUCTURE BUILT
-# 4 B25034_004 Estimate!!Total!!Built 2000 to 2009    YEAR STRUCTURE BUILT
-# 5 B25034_005 Estimate!!Total!!Built 1990 to 1999    YEAR STRUCTURE BUILT
-# 6 B25034_006 Estimate!!Total!!Built 1980 to 1989    YEAR STRUCTURE BUILT
-# 7 B25034_007 Estimate!!Total!!Built 1970 to 1979    YEAR STRUCTURE BUILT
-# 8 B25034_008 Estimate!!Total!!Built 1960 to 1969    YEAR STRUCTURE BUILT
-# 9 B25034_009 Estimate!!Total!!Built 1950 to 1959    YEAR STRUCTURE BUILT
-# 10 B25034_010 Estimate!!Total!!Built 1940 to 1949    YEAR STRUCTURE BUILT
-# 11 B25034_011 Estimate!!Total!!Built 1939 or earlier YEAR STRUCTURE BUILT
-# ------------------------------------------------------------------------------------------------------
-# 4 destination access (regional access)
-# jobs within 45 min by driving
-# network distance to CBD
-# certain types of businesses density 
-# ------------------------------------------------------------------------------------------------------
-# 5 distance to transit (transit level of service)
-# transit score 
-# alltransit indices 
-
-var.acs %>%
-  filter(grepl("^YEAR STRUCTURE BUILT", concept))
-
-varlist <- c("B01001_001", 
-             "B25024_001", "B25024_002", "B25024_003", "B25024_004", "B25024_005", 
-             "B25024_006", "B25024_007", "B25024_008", "B25024_009", 
-             "B25003_001", "B25003_002", "B25003_003", 
-             "B25034_001", "B25034_002", "B25034_003", "B25034_004", "B25034_005", 
-             "B25034_006", "B25034_007", "B25034_008", "B25034_009", "B25034_010", 
-             "B25034_011") 
-
-# ST <- c("AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL", "GA", "IL", 
-#         "IN", "KS", "KY", "LA", "MD", "MA", "MI", "MN", "MS", "MO",
-#         "NV", "NH", "NJ", "NY", "NC", "OH", "OK", "OR", "PA", "RI",
-#         "SC", "TN", "TX", "UT", "VA", "WA", "WI")
-
-# test <- trd %>%
-#   as_tibble(.) %>%
-#   separate(GEOID, c("ST", "NonST"), sep = 2) %>%
-#   mutate(
-#     CNTY = substr(NonST, 1, 3), 
-#     TR = substr(NonST, 4, 9), 
-#     UACE10 = as.character(UACE10)
-#   ) %>%
-#   select(ST, CNTY, TR, UACE10)
-
-# be_st <- trd 
-# beall <- NULL 
-# for(i in 1:37) {
-#   be_st <- trd
-#   for (j in 1:9) {
-#     temp <- NULL
-#     temp <- get_acs(geography = "tract", state = ST[i], variables = varlist[j], year=2017, 
-#                     cache_table = TRUE)
-#     temp <- temp[, c("GEOID", "estimate")]
-#     colnames(temp) <- c("GEOID", paste(varlist[j], "est", sep=""))  
-#     be_st <- merge(be_st, temp, by="GEOID")
-#   }
-#   beall <- rbind(beall, be_st)
-# }
-# str(beall)
-## View(beall)
-
 list_stcnty <- trd %>%
-  as_tibble(.) %>%
-  mutate(STCNTY = substr(GEOID, 1, 5)) %>%
-  distinct(STCNTY) %>%
-  separate(STCNTY, c("ST", "CNTY"), sep=2) %>%
-  select(ST, CNTY)
+  mutate(
+    ST = substr(tr, 1, 2), 
+    CNTY = substr(tr, 3, 5)
+  ) %>%
+  group_by(ST, CNTY) %>%
+  summarize() 
 
-#output <- vector("list", nrow(list_stcnty))
+varlist <- c("B01001_001", "B11016_001",                                           # # of people, # of households  
+             "B08301_001", "B08301_010", "B08301_018", "B08301_019",               # MEANS OF TRANSPORTATION TO WORK
+             "B25024_001", "B25024_002", "B25024_003", "B25024_004", "B25024_005", # UNITS IN STRUCTURE
+             "B25024_006", "B25024_007", "B25024_008", "B25024_009",               # UNITS IN STRUCTURE
+             "B25003_001", "B25003_002", "B25003_003",                             # owner/renter occupied units 
+             "B25034_001", "B25034_002", "B25034_003", "B25034_004", "B25034_005", # structure built year
+             "B25034_006", "B25034_007", "B25034_008", "B25034_009", "B25034_010", # structure built year
+             "B25034_011")                                                         # structure built year
 
-x <- output %>% 
-  detect_index(~ is.null(.)) # position of the first element where a condition is true
+# https://stackoverflow.com/questions/12193779/how-to-write-trycatch-in-r
+# https://stackoverflow.com/questions/46104176/how-to-run-a-function-multiple-times-and-write-the-results-to-a-list
 
-for (i in x:nrow(list_stcnty)){
-  result1 <- 
-    get_acs(geography = "tract", state = list_stcnty$ST[i], county = list_stcnty$CNTY[i], 
-            variables = varlist, year=2017, output = "wide", cache_table = TRUE) %>%
-    select(-NAME, -ends_with("M"))
-  result2 <- result1 %>%
-    mutate(
-      pop = B01001_001E,
-      hu_total = B25024_001E,
-      hu_sfh = B25024_002E + B25024_003E,
-      hu_mfh = B25024_004E + B25024_005E + B25024_006E + B25024_007E + B25024_008E + B25024_009E,
-      pctsfh = ifelse(B25024_001E>0, hu_sfh/B25024_001E*100, 0), 
-      pctmfh = ifelse(B25024_001E>0, hu_mfh/B25024_001E*100, 0), 
-      pctrenter = ifelse(B25003_001E>0, B25003_003E/B25003_001E*100, 0), 
-      pctbuilt_bf50 = ifelse(B25034_001E>0, (B25034_010E + B25034_011E)/B25034_001E*100, 0),
-      pctbuilt_5069 = ifelse(B25034_001E>0, (B25034_008E + B25034_009E)/B25034_001E*100, 0),
-      pctbuilt_7089 = ifelse(B25034_001E>0, (B25034_006E + B25034_007E)/B25034_001E*100, 0), 
-      pctbuilt_9009 = ifelse(B25034_001E>0, (B25034_004E + B25034_005E)/B25034_001E*100, 0),
-      pctbuilt_10af = ifelse(B25034_001E>0, (B25034_002E + B25034_003E)/B25034_001E*100, 0) 
-    ) %>% 
-    select(-ends_with("E"))
-  output[[i]] <- result2 
-  Sys.sleep(runif(n= 1, min=3, max=6))
+get_acs_tract <- function(i){
+  tryCatch(
+    {
+      get_acs(geography = "tract", state = list_stcnty$ST[i], county = list_stcnty$CNTY[i],
+              variables = varlist, year=2017, output = "wide", cache_table = TRUE)
+    }, 
+    error=function(cond){
+      # message("Here's the original error message:")
+      message(cond)
+      return(NA)
+    }
+  )
 }
 
-# beall2 <- bind_rows(output)
+tract_acs2017_raw <- map(1:nrow(list_stcnty), get_acs_tract) # took about 40 minutes 
+get_acs_tract_okay <- c(1:300)[map_lgl(tract_acs2017_raw, is.list)]        
+get_acs_tract_fail <- c(1:300)[map_lgl(tract_acs2017_raw, ~!is.list(.))]  
 
-# write_rds(beall2, "C:/Users/ylee366/Dropbox (GaTech)/3a_ResearchCEE/09_Uber_NHTS/05_Census/beall2.rds")
-beall2 <- read_rds("C:/Users/ylee366/Dropbox (GaTech)/3a_ResearchCEE/09_Uber_NHTS/05_Census/beall2.rds")
+map(get_acs_tract_fail, function(x) tract_acs2017_raw[[x]] <<- get_acs_tract(x))
+
+write_rds(tract_acs2017_raw, paste0(filepath, "/11_Scratch/tract_acs2017_raw.rds"))
+# tract_acs2017_raw <- read_rds(paste0(filepath, "/11_Scratch/tract_acs2017_raw.rds"))
+
+tract_acs2017_rb <- tract_acs2017_raw %>%
+  bind_rows() %>% 
+  select(-NAME, -ends_with("M")) %>%
+  mutate(
+    pop = B01001_001E,
+    hh  = B11016_001E,
+    hu_total = B25024_001E,
+    hu_sfh   = B25024_002E + B25024_003E,
+    hu_mfh   = B25024_004E + B25024_005E + B25024_006E + B25024_007E + B25024_008E + B25024_009E,
+    pctsfh   = ifelse(B25024_001E>0, hu_sfh/B25024_001E*100, 0),
+    pctmfh   = ifelse(B25024_001E>0, hu_mfh/B25024_001E*100, 0),
+    hu_occ   = B25003_001E,
+    pctowner  = ifelse(B25003_001E>0, B25003_002E/B25003_001E*100, 0),
+    pctrenter = ifelse(B25003_001E>0, B25003_003E/B25003_001E*100, 0),
+    commuter_all = B08301_001E,
+    commuter_pct_tr = ifelse(B08301_001E>0, B08301_010E/B08301_001E*100, 0),
+    commuter_pct_bk = ifelse(B08301_001E>0, B08301_018E/B08301_001E*100, 0),
+    commuter_pct_wk = ifelse(B08301_001E>0, B08301_019E/B08301_001E*100, 0),
+    pctbuilt_bf50 = ifelse(B25034_001E>0, (B25034_010E + B25034_011E)/B25034_001E*100, 0),
+    pctbuilt_5069 = ifelse(B25034_001E>0, (B25034_008E + B25034_009E)/B25034_001E*100, 0),
+    pctbuilt_7089 = ifelse(B25034_001E>0, (B25034_006E + B25034_007E)/B25034_001E*100, 0),
+    pctbuilt_9009 = ifelse(B25034_001E>0, (B25034_004E + B25034_005E)/B25034_001E*100, 0),
+    pctbuilt_10af = ifelse(B25034_001E>0, (B25034_002E + B25034_003E)/B25034_001E*100, 0)
+  ) %>%
+  select(-ends_with("E"))
+
+# sum(is.na(tract_acs2017_rb)) no missing 
 
 
-# beall$pctsfh <- ifelse(beall$B25024_001est>0, (beall$B25024_002est + beall$B25024_003est)/beall$B25024_001est *100, 0)
-# beall$mednrm <- beall$B25018_001est  
-# beall$pcth4v <- ifelse(beall$B08201_001est>0, beall$B08201_006est/beall$B08201_001est *100, 0)
-# beall$pctctr <- ifelse(beall$B08006_001est>0, beall$B08006_008est/beall$B08006_001est *100, 0)
-# beall2 <- beall[, c("GEOID", "UACE10", "pctsfh", "mednrm", "B01001_001est", "pcth4v", "pctctr")]  
 
-# tigris_cache_dir("C:/Users/yongs/Dropbox (GaTech)/3a_ResearchCEE/09_Uber_NHTS/05_Census/tigris")
+### Task 2. Download sp objects for 300 st-cnty via tigris::tracts ----
+
+tigris_cache_dir(paste0(filepath, "/05_Census/tigris"))
 readRenviron('~/.Renviron')
 options(tigris_use_cache=TRUE)
-
 
 # https://www.census.gov/quickfacts/fact/note/US/LND110210
 # unit: square meter -> square mile
 
-output2a <- vector("list", nrow(list_stcnty))
-for(i in seq_along(list_stcnty[[1]])){
-  temp <- tracts(list_stcnty$ST[i], list_stcnty$CNTY[i], cb = TRUE, year=2017)
-  output2a[[i]] <- temp@data %>%
-    select(GEOID, ALAND) %>%
-    mutate(sqmile = as.double(ALAND)/1000000*0.386102159) %>%
-    select(-ALAND)
-  Sys.sleep(runif(1, min=0, max=3))
+get_tiger_tract <- function(i){
+  a <- Sys.time()
+  tryCatch(
+    {
+      temp1 <- tracts(list_stcnty$ST[i], list_stcnty$CNTY[i], cb = TRUE, year=2017)
+      temp2 <- temp1@data %>%
+        as_tibble() %>%
+        select(GEOID, ALAND) %>%
+        mutate(sqmile = as.double(ALAND)/1000000*0.386102159) %>%
+        select(-ALAND)
+      b <- Sys.time()
+      print(paste0(as.character(i), "th iteration out of 300 is just finished."))
+      print(b - a) 
+      return(temp2)
+    }, 
+    error=function(cond){
+      # message("Here's the original error message:")
+      message(cond)
+      b <- Sys.time()
+      print(paste0(as.character(i), "th iteration out of 300 is just finished."))
+      print(b - a) 
+      return(NA)
+    }
+  )
 }
-output2b <- dplyr::bind_rows(output2a)
-head(output2b)
 
-output2b <- beall2 %>%
-  left_join(trd) %>%
-  left_join(output2b) %>%
+tract_area_raw <- map(1:nrow(list_stcnty), get_tiger_tract)
+# map(tract_area_raw, class) %in% c("tbl_df", "tbl", "data.frame") 
+write_rds(tract_area_raw, paste0(filepath, "/05_Census/tract_area_raw.rds"))
+# tract_area_raw <- read_rds(paste0(filepath, "/05_Census/tract_area_raw.rds"))
+
+tract_area_rb <- dplyr::bind_rows(tract_area_raw)
+head(tract_area_rb)
+write_rds(tract_area_rb,  paste0(filepath, "/05_Census/tract_area_rb.rds"))
+# tract_area_rb <- read_rds(paste0(filepath, "/05_Census/tract_area_rb.rds"))
+
+# sum(is.na(tract_area_rb)) # sqmile: no missing
+# n_distinct(tract_area_rb$GEOID) # 38,517 tracts in 300 counties
+# nrow(tract_area_rb)
+
+tract_be <- tract_acs2017_rb %>%                         # 38,571 tracts in 300 counties   (via tidycensus::get_acs)
+  right_join(trd, by = c("GEOID" = "tr")) %>%            # 32,939 tracts in the top 50 UAs (via tigris::block_groups, aggregated for tracts)
+  left_join(tract_area_rb) %>%                           # 38,517 tracts in 300 counties   (via tigris::tracts)
+  select(GEOID, UACE10, sqmile, pop, hh, hu_total, hu_sfh, hu_mfh, everything())
+
+write_rds(tract_be, paste0(filepath, "/05_Census/tract_be.rds"))
+# tract_be <- read_rds(paste0(filepath, "/05_Census/tract_be.rds"))
+
+# nrow(tract_be) # 32,939 tracts in top 50 UAs
+# n_distinct(tract_be$GEOID) # two duplicates 
+# sum(is.na(tract_be)) # no missing 
+
+
+
+### Task 3. Download job counts at the block level for 37 states via lehdr::grab_lodes ---- 
+
+# https://lehd.ces.census.gov/doc/help/onthemap/OnTheMapDataOverview.pdf
+# https://github.com/jamgreen/lehdr
+
+## make a character vector of 37 state abbr.  
+list_st_fips <- 
+  list_stcnty$ST %>%
+  table() %>%
+  names() %>% 
+  as.data.frame()
+colnames(list_st_fips) <- "fips_st"
+
+list_st_lookup <- read_csv(paste0(filepath, "/05_Census/list_fips_st.csv"))
+list_st_names <- left_join(list_st_fips, list_st_lookup)$st
+
+## define a function that collects work-area job counts at the tract level 
+get_lodes_wac <- function(x){
+  grab_lodes(state = x, year = 2015, lodes_type = "wac", job_type = "JT00", 
+             segment = "S000", state_part = "main", agg_geo = "tract", 
+             download_dir = paste0(filepath, "/05_Census/lodes"))
+}
+
+## run a map function that iterates over 37 states 
+lodes_wac_st <- map(list_st_names, get_lodes_wac)
+# map_lgl(lodes_wac_st, ~class(.)[[1]] %in% c("tbl_df", "tbl", "data.frame")) %>% sum()
+
+lodes_wac_df <- lodes_wac_st %>%
+  bind_rows() %>%
   mutate(
-    den_pop = pop/sqmile,  
-    den_hu  = hu_total/sqmile        # not standardized yet
-  ) %>% 
-  group_by(UACE10) %>%
-  select(GEOID, UACE10, sqmile, pop, hu_total, hu_sfh, hu_mfh, den_pop, den_hu, everything())
+    jobs = C000, 
+    E5_Ret15 = CNS07,                                                  # retail 
+    E5_Off15 = CNS09 + CNS10 + CNS11 + CNS13 + CNS20,                  # office
+    E5_Ind15 = CNS01 + CNS02 + CNS03 + CNS04 + CNS05 + CNS06 + CNS08,  # industrial 
+    E5_Svc15 = CNS12 + CNS14 + CNS15 + CNS16 + CNS19,                  # service
+    E5_Ent15 = CNS17 + CNS18                                           # entertainment 
+  ) %>%
+  select(w_tract, jobs, E5_Ret15, E5_Off15, E5_Ind15, E5_Svc15, E5_Ent15)
 
-# write_rds(output2b, "C:/Users/ylee366/Dropbox (GaTech)/3a_ResearchCEE/09_Uber_NHTS/05_Census/output2b.rds")
-# temp <- read_rds("C:/Users/ylee366/Dropbox (GaTech)/3a_ResearchCEE/09_Uber_NHTS/05_Census/output2b.rds")
-# identical(output2b, temp)
+## define a function that collects home-area job counts (in fact, worker counts) at the tract level 
+get_lodes_rac <- function(x){
+  grab_lodes(state = x, year = 2015, lodes_type = "rac", job_type = "JT00", 
+             segment = "S000", state_part = "main", agg_geo = "tract", 
+             download_dir = paste0(filepath, "/05_Census/lodes"))
+}
+
+lodes_rac_st <- map(list_st_names, get_lodes_rac)
+
+lodes_rac_df <- lodes_rac_st %>%
+  bind_rows() %>% 
+  select(h_tract, workers = C000)
+
+## merge back to the previous outcome, tract_be 
+tract_be2 <- tract_be %>% 
+  left_join(lodes_wac_df, by = c("GEOID" = "w_tract")) %>%
+  left_join(lodes_rac_df, by = c("GEOID" = "h_tract")) %>%
+  mutate(
+    den_pop = pop/sqmile, 
+    den_hh  = hh/sqmile, 
+    den_hu  = hu_total/sqmile, 
+    den_job = jobs/sqmile, 
+    job_per_hh     = ifelse(hh >0,        jobs/hh,       0),  
+    job_per_hu     = ifelse(hu_total > 0, jobs/hu_total, 0), 
+    job_per_worker = ifelse(workers>0,    jobs/workers,  0)
+    ) %>%
+  select(-pop, -hh, -hu_total, -hu_sfh, -hu_mfh, -hu_occ) %>%
+  select(GEOID, UACE10, sqmile, den_pop, den_hh, den_hu, den_job, job_per_hh, job_per_hu, job_per_worker, everything())
+
+# a <- map_dbl(tract_be, ~sum(is.na(.))) 
+# a[a>0] # no missing 
+
+# a <- map_dbl(tract_be2, ~sum(is.na(.))) 
+# a[a>0] # some missing b/c either no jobs or no workers
+
+tract_entropy <- tract_be2 %>%
+  select(GEOID, E5_Ret15:E5_Ent15) %>% 
+  gather(E5_Ret15:E5_Ent15, key = "industry", value = "count") %>%
+  filter(count>0) %>%
+  arrange(GEOID) %>%
+  group_by(GEOID) %>%
+  mutate(
+    n = n(), 
+    job_total = sum(count), 
+    sh = count/job_total, 
+    lnsh = log(sh),  
+    sh_lnsh = sh*lnsh
+  ) %>%
+  summarize(
+    sum_sh = sum(sh_lnsh),
+    mean_n = mean(n), 
+    ln_n = log(mean_n), 
+    entropy = ifelse(mean_n>1, -sum_sh/ln_n, 0) 
+  ) %>%
+  select(GEOID, entropy)
+
+tract_be3 <- tract_be2 %>%
+  left_join(tract_entropy) %>% 
+  mutate(entropy = ifelse(is.na(entropy) == TRUE, 0, entropy)) %>%
+  select(-jobs, -E5_Ret15, -E5_Off15, -E5_Ind15, -E5_Svc15, -E5_Ent15, -workers, -commuter_all) %>% 
+  mutate(den_job        = ifelse(is.na(den_job)        == TRUE, 0, den_job), 
+         job_per_hh     = ifelse(is.na(job_per_hh)     == TRUE, 0, job_per_hh),
+         job_per_hu     = ifelse(is.na(job_per_hu)     == TRUE, 0, job_per_hu),
+         job_per_worker = ifelse(is.na(job_per_worker) == TRUE, 0, job_per_worker)
+  )
+
+write_rds(tract_be3, paste0(filepath, "/05_Census/tract_be3.rds"))
+# tract_be3 <- read_rds(paste0(filepath, "/05_Census/tract_be3.rds"))
+
+# a <- map_dbl(tract_be3, ~sum(is.na(.))) 
+# a[a>0] # no missing 
 
 
 
-# beall3 <- temp3[, c("GEOID", "UACE10", "pctsfh", "mednrm", "popden", "pcth4v", "pctctr")]
-# beall3a <- ddply(beall3,  c("UACE10"), transform, pctsfh.std=scale(pctsfh))
-# beall3b <- ddply(beall3a, c("UACE10"), transform, mednrm.std=scale(mednrm))
-# beall3c <- ddply(beall3b, c("UACE10"), transform, popden.std=scale(popden))
-# beall3d <- ddply(beall3c, c("UACE10"), transform, pcth4v.std=scale(pcth4v))
-# beall3e <- ddply(beall3d, c("UACE10"), transform, pctctr.std=scale(pctctr))
-# beall4 <- beall3e[, c("GEOID", "UACE10", "pctsfh.std", "mednrm.std", "popden.std", "pcth4v.std", "pctctr.std")]
+### Task 4. Read in the US EPA Smart Location Database ---- 
 
-# rm("temp", "temp2", "temp3")
-# rm("beall", "be_st", "beall2", "beall3", "beall3a", "beall3b", "beall3c", "beall3d", "beall3e")
+sld <- read.dbf(paste0(filepath, "/04_SLD/SmartLocationDb.dbf"), as.is = TRUE) # read in character as character
 
+tract_sld <- sld %>% 
+  as.tibble() %>%
+  mutate(GEOID = substr(GEOID10, 1, 11)) %>%
+  semi_join(tract_be3) %>%
+  group_by(GEOID) %>%
+  summarize(
+    nblkgrp = n(), 
+    D3a.w    = weighted.mean(D3a,    TOTPOP10, na.rm = TRUE), 
+    D3aao.w  = weighted.mean(D3aao,  TOTPOP10, na.rm = TRUE), 
+    D3amm.w  = weighted.mean(D3amm,  TOTPOP10, na.rm = TRUE), 
+    D3apo.w  = weighted.mean(D3apo,  TOTPOP10, na.rm = TRUE), 
+    D3b.w    = weighted.mean(D3b,    TOTPOP10, na.rm = TRUE), 
+    D3bao.w  = weighted.mean(D3bao,  TOTPOP10, na.rm = TRUE), 
+    D3bmm3.w = weighted.mean(D3bmm3, TOTPOP10, na.rm = TRUE), 
+    D3bmm4.w = weighted.mean(D3bmm4, TOTPOP10, na.rm = TRUE), 
+    D3bpo3.w = weighted.mean(D3bpo3, TOTPOP10, na.rm = TRUE), 
+    D3bpo4.w = weighted.mean(D3bpo4, TOTPOP10, na.rm = TRUE),
+    D5ar.w   = weighted.mean(D5ar,   TOTPOP10, na.rm = TRUE) 
+  )
 
-#3.2. Run exploratory factor analysis on five LU measures, standardized by UA 
+tract_be4 <- tract_be3 %>% left_join(tract_sld)
+write_rds(tract_be4, paste0(filepath, "/05_Census/tract_be4.rds"))
+# tract_be4 <- read_rds(paste0(filepath, "/05_Census/tract_be4.rds"))
 
-#https://cran.r-project.org/web/packages/psych/psych.pdf
-#http://personality-project.org/r/psych/HowTo/factor.pdf
-
-beall5 <- beall4[!(is.na(beall4$pctsfh.std)==TRUE | is.na(beall4$mednrm.std)==TRUE | is.na(beall4$popden.std)==TRUE | 
-                   is.na(beall4$pcth4v.std)==TRUE | is.na(beall4$pctctr.std)==TRUE ), 
-                 c("GEOID", "pctsfh.std", "mednrm.std", "popden.std", "pcth4v.std", "pctctr.std")]
-
-fit1 <- fa(beall5[, 2:6], nfactors=1, rotate = "oblimin", scores="Bartlett", fm="pa", SMC=TRUE, covar=FALSE)
-fit2 <- fa(beall5[, 2:6], nfactors=1, rotate = "oblimin", scores="Bartlett", fm="ml", SMC=TRUE, covar=FALSE)
-fit2
-beall5$den <- as.numeric(fit2$scores)*(-1)
-beall6 <- beall5[, c("GEOID", "den")]
-beall7 <- merge(beall4, beall6, by="GEOID")
-
-rm("beall4", "beall5", "beall6")
-rm("fit1", "fit2")
- 
-write.csv(beall7, "M:/Uber_NHTS/11_Scratch/beall7.csv")
+# a <- map_dbl(tract_be4, ~sum(is.na(.))) 
+# a[a>0] # 87 tracts missing: maybe, no population in 2010 US Census? thus, all tracts deleted when weighted by population?  
 
 
-beall7 <- read.csv("M:/Uber_NHTS/11_Scratch/beall7.csv")
-beall7[, 1] <- NULL 
-beall7$GEOID <- as.character(beall7$GEOID)
-beall7$GEOID <- ifelse(nchar(beall7$GEOID)==10, paste("0", beall7$GEOID, sep=""), beall7$GEOID)
+
+### Task 5. Run exploratory factor analysis on five LU measures, standardized by UA ---- 
+
+## Task 5.1 prep data: log-transform 
+tract_be5 <- tract_be4[complete.cases(tract_be4), ]
+
+# library("car")
+# scatterplotMatrix(tract_be5[, c(3:12)])
+# scatterplotMatrix(tract_be5[, c(13:22)])
+# scatterplotMatrix(tract_be5[, c(23:32)])
+# detach(package:car)
+
+# install.packages("Hmisc", dependencies = TRUE)
+# library(Hmisc, attach.required = TRUE)
+# detach(package:Hmisc)
+
+# http://www.sthda.com/english/wiki/correlation-matrix-a-quick-start-guide-to-analyze-format-and-visualize-a-correlation-matrix-using-r-software
+# install.packages("PerformanceAnalytics", dependencies = TRUE)
+# library(PerformanceAnalytics, attach.required = TRUE)
+# chart.Correlation(tract_be5[, c(3:7)], histogram = TRUE, pch = 19)
+# detach(package:PerformanceAnalytics)
+
+# install.packages("ggpubr", dependencies = TRUE)
+# library(ggpubr, attach.required = TRUE)  
+# ggdensity(tract_be5[[ ]])
+# detach(package:ggpubr)
+
+log.transform <- function(x){
+  if(typeof(x) != "character"){
+    x <- log(x+1)
+  } else {
+    x 
+  }
+}
+
+tract_be6 <- map_df(tract_be5, log.transform)
+
+map_chr(tract_be5, typeof)
+names(tract_be5)
+
+summary(tract_be5[3:20])
+summary(tract_be6[3:20])
+
+map(tract_be5[, c(3:35)], ~shapiro.test(sample(., size = 5000))$p.value) %>% unlist()
+map(tract_be6[, c(3:35)], ~shapiro.test(sample(., size = 5000))$p.value) %>% unlist()
 
 
-#3.3. Append instrument variables for the use of Uber, which captures *exogenous* variation in Uber supply  
+## Task 5.2 run factor analysis 
 
+# prep packages: http://dwoll.de/rexrepos/posts/multFA.html
+wants <- c("GPArotation", "mvtnorm", "psych")
+has   <- wants %in% rownames(installed.packages())
+if(any(!has)) install.packages(wants[!has], dependencies = TRUE)
+# library(psych) # already loaded in the beginning 
+
+
+# https://cran.r-project.org/web/packages/psych/psych.pdf
+# http://personality-project.org/r/psych/HowTo/factor.pdf
+# fit1 <- fa(beall5[, 2:6], nfactors=1, rotate = "oblimin", scores="Bartlett", fm="pa", SMC=TRUE, covar=FALSE)
+# fit2 <- fa(beall5[, 2:6], nfactors=1, rotate = "oblimin", scores="Bartlett", fm="ml", SMC=TRUE, covar=FALSE)
+
+names(tract_be6)
+# dropped variables: 
+# sqmile, pctbuilt_10af, entropy, nblkgrp, 
+# commuter_pct_bk, D3aao.w, D3bao.w
+# den_job
+# D3amm.w, D3bmm3.w, D3bmm4.w 
+# commuter_pct_tr  
+# pctmfh, pctrenter, D5ar.w 
+
+be.input <- tract_be6[, c(4:6, 8:11, 13, 17:21, 25, 28:29, 33:34)] 
+
+# fa.parallel(x = be.input, fm = "ml", fa = "fa", cor="cor", SMC=TRUE)
+
+fa.preset <- function(x){
+  fa(r = be.input, nfactors = x, rotate = "oblimin", scores="Bartlett", 
+     SMC=TRUE, warnings=TRUE, fm= "ml") #, oblique.scores=TRUE)
+}
+
+# fa3 <- fa.preset(3)
+# fa4 <- fa.preset(4)
+fa5 <- fa.preset(5)
+# fa6 <- fa.preset(6)
+# fa7 <- fa.preset(7)
+# fa8 <- fa.preset(8)
+# fa9 <- fa.preset(9)
+# fa10 <- fa.preset(10)
+# fa11 <- fa.preset(11)
+
+# c(fa3$RMSEA[1], fa4$RMSEA[1], fa5$RMSEA[1], fa6$RMSEA[1], fa7$RMSEA[1],
+#   fa8$RMSEA[1], fa9$RMSEA[1], fa10$RMSEA[1], fa11$RMSEA[1]) # below 0.05
+# c(fa3$rms, fa4$rms, fa5$rms, fa6$rms, fa7$rms,
+#   fa8$rms, fa9$rms, fa10$rms, fa11$rms)
+# # if the residuals are particularly non-normal,
+# # the rms value and the associated χ2 and RMSEA can differ substantially
+# c(fa3$TLI, fa4$TLI, fa5$TLI, fa6$TLI, fa7$TLI,
+#   fa8$TLI, fa9$TLI, fa10$TLI, fa11$TLI) # above 0.9
+
+# https://www.promptcloud.com/blog/exploratory-factor-analysis-in-r/
+# print(fa3$loadings, cutoff = 0.3)
+# print(fa4$loadings, cutoff = 0.3)
+print(fa5$loadings, cutoff = 0.3)
+# print(fa6$loadings, cutoff = 0.3)
+# print(fa7$loadings, cutoff = 0.3)
+# print(fa8$loadings, cutoff = 0.3)
+# print(fa9$loadings, cutoff = 0.3)
+# print(fa10$loadings, cutoff = 0.3)
+# print(fa11$loadings, cutoff = 0.3)
+
+fa.diagram(fa5)
+fa5 
+
+fa5$scores[1:5, ]
+
+be.5factors <- 
+  fa5$scores %>% 
+  as_tibble()
+
+tract_be7 <- 
+  tract_be6[, 1:2] %>% 
+  dplyr::bind_cols(be.5factors)
+
+write_rds(tract_be7, path = paste0(filepath, "/11_Scratch/tract_be7.rds"))
+# tract_be7 <- read_rds(paste0(filepath, "/11_Scratch/tract_be7.rds"))
+
+# install.packages("moments", dependencies = TRUE)
+# library(moments)
+
+
+
+
+
+### Task 6. Append instrument variables for the use of Uber, which captures *exogenous* variation in Uber supply ----  
 
 # tract-level variables from 2008-2012 ACS 5-year estimates (mid-year 2010) 
 # % college graduates, % young adults (25-34), % individuals without any vehicle
@@ -351,21 +698,38 @@ beall7$GEOID <- ifelse(nchar(beall7$GEOID)==10, paste("0", beall7$GEOID, sep="")
 # count of jobs in food services, entertainment/arts, etc 
 # standardize by UA
 
-
 varlist2 <- c("B06009_001", "B06009_005", "B06009_006", "B06001_001", "B06001_005", 
               "B08014_001", "B08014_002") 
-iv_st <- trd 
+
 ivall <- NULL 
+
+iv_st <- 
+  trd %>%
+  rename(GEOID = tr) %>%
+  mutate(st = substr(GEOID, 1, 2)) %>%
+  select(st, GEOID)
+
+
+
+
+
+temp <- NULL
+temp <- get_acs(geography = "tract", state = list_st_fips[[1]][1], variables = varlist2[1], year=2016, 
+                cache_table = TRUE)
+#Sys.sleep(0.75)
+temp <- temp[, c("GEOID", "estimate")]
+colnames(temp) <- c("GEOID", paste(varlist2[j], "est", sep=""))  
+iv_st <- merge(iv_st, temp, by="GEOID") 
+
 for (i in 1:37) {
-  iv_st <- trd 
   for (j in 1:7) {
     temp <- NULL
-    temp <- get_acs(geography = "tract", state = ST[i], variables = varlist2[j], year=2016, 
+    temp <- get_acs(geography = "tract", state = list_st_fips[[1]][i], variables = varlist2[j], year=2016, 
                     cache_table = TRUE)
     #Sys.sleep(0.75)
     temp <- temp[, c("GEOID", "estimate")]
     colnames(temp) <- c("GEOID", paste(varlist2[j], "est", sep=""))  
-    iv_st <- merge(iv_st, temp, by="GEOID")
+    iv_st <- merge(iv_st, temp, by="GEOID") 
   }
   ivall <- rbind(ivall, iv_st)
 }
@@ -419,8 +783,8 @@ ivall4$GEOID <- as.character(ivall4$GEOID)
 ivall4$GEOID <- ifelse(nchar(ivall4$GEOID)==10, paste("0", ivall4$GEOID, sep=""), ivall4$GEOID)
 
 
-#3.4. Scrape walkscore.com: using a different file of scripts 
 
+## Task 7. Scrape walkscore.com: using a different file of scripts 
 
 trxy <- NULL 
 for (i in 1:37) {
@@ -441,10 +805,11 @@ trxy <- read.csv("M:/Uber_NHTS/11_Scratch/trxy.csv")
 #See another script that scrapes walkscores at the census tract level: To be updated
 
 
-#3.4. Clean socioeconomic/demographic variables 
 
+# Step 3. Prepare HH/PERSON/individual-level IV variables -------------------------------------
 
-#3.4.1. Outcome variables: data01
+## Task 1. Outcome variables: data01
+
 # n of vehicles, transit trips per week, non-motorized trips per week 
 # treatment indicator 
 
@@ -518,7 +883,8 @@ sapply(data01, class)
 
 
 
-#3.4.2. Household level covariates
+## Task 2. HH variables  
+
 # n of child, employees, and bicycles, income, homeownership, residence type, 
 # residential/work density + accessibility
 # Uber supply measure 
@@ -564,11 +930,15 @@ colnames(data04)[a] <- "workden"
 rm("data02", "data03", "beall7", "ivall4")
  
 
+
 # How to make ML1, ML1 in data04 change to homeden, workden?  
 #https://stackoverflow.com/questions/27347548/r-assign-variable-labels-of-data-frame-columns
 #install.packages("Hmisc")
 #library(Hmisc)
 
+
+
+## Task 3. Uber suuply variable: Google Trends # of Searches
 
 ua2016 <- urban_areas(cb=FALSE, year=2016)
 ualist <- ua2016@data
@@ -738,8 +1108,8 @@ rm("uber06", "uber07", "uber08", "uber09", "uber10")
 
 
 
+## Task 4. Person variables, "non-workers removed" 
 
-#3.4.3. Individual level covariates: "non-workers removed" 
 # Age, commute distance, disability, educational attainment, gender, driver's license, occupation (1 among 3)
 # n of commute days per week 
 
@@ -841,7 +1211,7 @@ rm("data08")
 
 
 
-#3.4.4. Merge three dataframes 
+## Task 5. Merge three dataframes 
 
 colnames(data01)
 colnames(data06)
@@ -854,7 +1224,11 @@ nrow(data10)
 
 
 
-#4. PSM estimation 
+
+# Step 4. Estimate binary logit/probit for balancing the final sample -----
+
+## Task 1. PSM estimation 
+
 #4.1. Compute a new categorical variable, RS 
 # 0 - no use in the last 30 days 
 # 1 - less than once a week in the last 30 days 
@@ -886,7 +1260,9 @@ a$pct <- a[,2]/b*100
 sum(a$Freq)
 a
 
-#4.2. PSM estimation 
+
+
+## Task 2. PSM estimation 
 
 ## (1- nrow(data10[is.na(data10$RS)==FALSE, ])/nrow(data10))*100 
 ## table(data10$RS)
@@ -1318,6 +1694,10 @@ colnames(match.data.all)
 data13 <- match.data.all[, c(2:6, 128, 7:71, 1, 74:127)]
 colnames(data13)
 
+
+
+## Task 3. Prepare for mplut estimation 
+
 varname <- as.data.frame(colnames(data13))
 nrow(varname)-54
 
@@ -1407,3 +1787,5 @@ sum(a[a>0])
 ## boxplot(as.numeric(data13$NWBMODE2)~UA44, data=data13)
 ## summary(as.numeric(as.character(data13[data13$UA44==1 & data13$RS==1, ]$NWBMODE2)))
 ## summary(as.numeric(as.character(data13[data13$UA44==1 & data13$RS==0, ]$NWBMODE2)))
+
+
