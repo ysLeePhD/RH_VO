@@ -724,9 +724,9 @@ get_acs_tract2 <- function(i){
 # first-round api call 
 # rm(tract_acs2012_raw)
 start_time <- Sys.time()
-tract_acs2012_raw <- map(1:37, get_acs_tract2) # took about ?? minutes
+tract_acs2012_raw <- map(1:37, get_acs_tract2) 
 end_time <- Sys.time()
-end_time - start_time
+end_time - start_time # took about ?? minutes
 
 # second-round api call 
 tract_acs2012_raw_okay <- c(1:37)[map_lgl(tract_acs2012_raw, is.list)]        
