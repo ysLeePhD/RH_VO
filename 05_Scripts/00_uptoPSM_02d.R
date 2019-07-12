@@ -825,6 +825,9 @@ iv_all00 <-
 end_time <- Sys.time()
 end_time - start_time # Time difference of 3.036413 mins
 
+write_rds(iv_all00, paste0(filepath, "/11_Scratch/iv_all00.rds"))
+# iv_all00 <- read_rds(paste0(filepath, "/11_Scratch/iv_all00.rds")) 
+
 # standardize by UA 
 start_time <- Sys.time()
 iv_all01 <- 
@@ -993,13 +996,17 @@ data02$GEOID <- as.numeric(data02$HHSTFIPS)*1000000000+as.numeric(data02$HHCNTYF
 data02$GEOID <- ifelse(data02$GEOID<10000000000, paste("0", data02$GEOID, sep=""), as.character(data02$GEOID))
 
 data03 <- data02 %>%
-  left_join(tract_be3[, c("GEOID", "UACE10", "den_pop")], by=c("GEOID", "UACE10")) %>%
-  as_tibble() # lost 6 cases probably b/c home CT without ACS estimates 
+  left_join(tract_be7, by=c("GEOID", "UACE10")) %>%
+  as_tibble() 
 
-colnames(data03)[ncol(data03)] <- "homeden"
+colnames(data03)[20:24] <- 
+  c("home.den.st", "home.den.pp", "home.jobrich", "home.oldnbhd", "home.sfh")
 
 data04 <- data03 %>% 
   left_join(iv_all01[, c(1:5)], by=c("GEOID", "UACE10"))
+
+colnames(data04)[25:27] <- 
+  c("home.pctcoll", "home.pctyoung", "home.pctxveh")
 
 data04$GEOID <- paste0(data04$WKSTFIPS, data04$WKCNFIPS, data04$WORKCT)
 
@@ -1012,23 +1019,23 @@ iv_all01_2 <-
   ) %>%
   ungroup()
 
-tract_be3_2 <- 
-  tract_be3 %>%
+tract_be7_2 <- 
+  tract_be7 %>%
   group_by(GEOID) %>%
   summarize(
-    den_pop = mean(den_pop)
+    work.den.st = mean(ML3), 
+    work.den.pp = mean(ML1), 
+    work.jobrich = mean(ML2), 
+    work.oldnbhd = mean(ML5), 
+    work.sfh = mean(ML4)
   ) %>% 
   ungroup()
 
 data05 <- left_join(data04, iv_all01_2, by="GEOID")
-data06 <- left_join(data05, tract_be3_2, by="GEOID")
-
-data06$WKSTFIPS <- NULL
-data06$WKCNFIPS <- NULL
-data06$WORKCT <- NULL
+data06 <- left_join(data05, tract_be7_2, by="GEOID")
 data06$GEOID <- NULL
 
-colnames(data06)[ncol(data06)] <- "workden"
+colnames(data06)[27:28] <- c("work.den.tech", "work.den.serv")
 
 # rm("data02", "data03", "beall7", "ivall4")
 # How to make ML1, ML1 in data04 change to homeden, workden?  
@@ -1046,7 +1053,7 @@ ualist <- ualist[, c("UACE10", "NAME10")]
 ualist$UACE10 <- as.integer(ualist$UACE10)
 rm("ua2016")
 
-data05 <- merge(data04, ualist, by="UACE10")
+# data05 <- merge(data04, ualist, by="UACE10")
 nhtsualist <- as.data.frame(table(data05$UACE10))
 colnames(nhtsualist) <- c("UACE10", "cases")
 nhtsualist$UACE10 <- as.integer(as.character(nhtsualist$UACE10))
@@ -1457,17 +1464,21 @@ nrow(data11)
 
 #data11 <- data11[data11$UACE10==63217, ] #NY; 3817-Atlanta 
 #data11$RS <- as.factor(data11$RS)
-usedvars <- c("HOUSEID", "PERSONID", "RIDESHARE", "HHVEHCNT", "HHVEHCNT2", "PTUSED2", "NWBMODE2", 
-              "RS", "LIF_CYC01", "LIF_CYC02", "LIF_CYC03", "LIF_CYC04", "LIF_CYC05", "LIF_CYC06", 
-              "LIF_CYC07", "LIF_CYC08", "LIF_CYC09", "LIF_CYC10", "WRKCOUNT", "DRVRCNT", "NUMCHILD", "YOUNGCHILD", 
-              "HHFAMINC01", "HHFAMINC02", "HHFAMINC03", "HHFAMINC04", "HHFAMINC05", "HHFAMINC06", 
-              "HHFAMINC07", "HHFAMINC08", "HHFAMINC09", "HHFAMINC10", "HHFAMINC11", "HOMEOWN2", 
-              "homeden", "workden", "pctcoll", "pctyoung", "pctxveh", "techden", "servden", 
-              "R_SEX", "R_AGE", "R_RACE01", "R_RACE02", "R_RACE03", "R_RACE04", "R_RACE05", "R_RACE06", "R_RACE97", 
-              "R_HISP", "DRIVER", "EDUC01", "EDUC02", "EDUC03", "EDUC04", "EDUC05", 
-              "OCCAT01", "OCCAT02", "OCCAT03", "OCCAT04", "OCCAT97", 
-              "Telecommute00", "Telecommute01", "Telecommute02", "Telecommute03", "Telecommute04", 
-              "medcon", "deliver", "UACE10") # "GTscore.std", 
+usedvars <- c(
+  "HOUSEID", "PERSONID", "RIDESHARE", "HHVEHCNT", "HHVEHCNT2", "PTUSED2", "NWBMODE2", "RS", 
+  "LIF_CYC01", "LIF_CYC02", "LIF_CYC03", "LIF_CYC04", "LIF_CYC05", "LIF_CYC06", 
+  "LIF_CYC07", "LIF_CYC08", "LIF_CYC09", "LIF_CYC10", "WRKCOUNT", "DRVRCNT", "NUMCHILD", "YOUNGCHILD", 
+  "HHFAMINC01", "HHFAMINC02", "HHFAMINC03", "HHFAMINC04", "HHFAMINC05", "HHFAMINC06", 
+  "HHFAMINC07", "HHFAMINC08", "HHFAMINC09", "HHFAMINC10", "HHFAMINC11", "HOMEOWN2", 
+  "home.den.st", "home.den.pp", "home.jobrich", "home.oldnbhd", "home.sfh",      
+  "home.pctcoll", "home.pctyoung", "home.pctxveh", "work.den.tech", "work.den.serv", 
+  "work.den.st", "work.den.pp", "work.jobrich", "work.oldnbhd", "work.sfh", 
+  "R_SEX", "R_AGE", "R_RACE01", "R_RACE02", "R_RACE03", "R_RACE04", "R_RACE05", "R_RACE06", "R_RACE97", 
+  "R_HISP", "DRIVER", "EDUC01", "EDUC02", "EDUC03", "EDUC04", "EDUC05", 
+  "OCCAT01", "OCCAT02", "OCCAT03", "OCCAT04", "OCCAT97", 
+  "Telecommute00", "Telecommute01", "Telecommute02", "Telecommute03", "Telecommute04", 
+  "medcon", "deliver", "UACE10"
+  ) # "GTscore.std", 
 data12 <- data11[, usedvars]
 data12 <- data12[complete.cases(data12), ]
 names(data12)
@@ -1528,38 +1539,31 @@ a[order(-a$User, -a$pctUser), ]
 ## install.packages("stargazer")
 ## library(stargazer)
 
-psm <- glm(RS ~ LIF_CYC02 + LIF_CYC03 + LIF_CYC04 + LIF_CYC05 + LIF_CYC06 + LIF_CYC07 + LIF_CYC08 + LIF_CYC09 + 
-             LIF_CYC10 + WRKCOUNT + DRVRCNT + NUMCHILD + YOUNGCHILD + HHFAMINC02 + HHFAMINC03 + HHFAMINC04 +
-             HHFAMINC05 + HHFAMINC06 + HHFAMINC07 + HHFAMINC08 + HHFAMINC09 + HHFAMINC10 + HHFAMINC11 + 
-             HOMEOWN2 + homeden + workden + pctcoll + pctyoung + pctxveh + techden + servden + 
-             R_SEX + R_AGE + R_RACE02 + R_RACE03 + R_RACE04 + 
-             R_RACE06 + R_RACE97 + R_HISP + DRIVER + EDUC02 + EDUC03 + EDUC04 + EDUC05 + 
-             OCCAT02 + OCCAT03 + OCCAT04 + Telecommute01 + Telecommute02 + Telecommute03 +
-             Telecommute04 + medcon + deliver, 
-           family=binomial(link="probit"), control = list(maxit = 100), data=data13)
+names(data13)
+
+psm <- glm(
+  RS ~ 
+    LIF_CYC02 + LIF_CYC03 + LIF_CYC04 + LIF_CYC05 + LIF_CYC06 + LIF_CYC07 + LIF_CYC08 + 
+    LIF_CYC09 + LIF_CYC10 + WRKCOUNT + DRVRCNT + NUMCHILD + YOUNGCHILD + 
+    HHFAMINC02 + HHFAMINC03 + HHFAMINC04 + HHFAMINC05 + HHFAMINC06 + HHFAMINC07 + 
+    HHFAMINC08 + HHFAMINC09 + HHFAMINC10 + HHFAMINC11 + HOMEOWN2 + 
+    home.den.pp + home.den.st + home.jobrich + home.oldnbhd + home.sfh + 
+    home.pctcoll + home.pctyoung + home.pctxveh + 
+    work.den.pp + work.den.st + work.jobrich + work.oldnbhd + work.sfh + 
+    work.den.tech + work.den.serv + 
+    R_SEX + R_AGE + R_RACE02 + R_RACE03 + R_RACE04 + R_RACE06 + R_RACE97 + 
+    R_HISP + DRIVER + EDUC02 + EDUC03 + EDUC04 + EDUC05 + 
+    OCCAT02 + OCCAT03 + OCCAT04 + Telecommute01 + Telecommute02 + Telecommute03 +
+    Telecommute04 + medcon + deliver, 
+  family=binomial(link="probit"), 
+  control = list(maxit = 100), 
+  data=data13
+  )
 summary(psm)
 ## stargazer(psm, type="text")
 
-
-xvars <- c("RIDESHARE",     "HHVEHCNT",      "HHVEHCNT2",     "PTUSED2",       "NWBMODE2",      "RS",      
-           "LIF_CYC01",     "LIF_CYC02",     "LIF_CYC03",     "LIF_CYC04",     "LIF_CYC05",     
-           "LIF_CYC06",     "LIF_CYC07",     "LIF_CYC08",     "LIF_CYC09",     "LIF_CYC10",    
-           "WRKCOUNT",      "DRVRCNT",       "NUMCHILD",      "YOUNGCHILD",    "HHFAMINC01",    "HHFAMINC02",    
-           "HHFAMINC03",    "HHFAMINC04",    "HHFAMINC05",    "HHFAMINC06",    "HHFAMINC07",    "HHFAMINC08",    
-           "HHFAMINC09",    "HHFAMINC10",    "HHFAMINC11",    "HOMEOWN2",       "homeden",       "workden",       
-           "pctcoll",       "pctyoung",      "pctxveh",       "techden",       "servden",   
-           "R_SEX",         "R_AGE",         "R_RACE01",      "R_RACE02",      "R_RACE03",      "R_RACE04",      
-           "R_RACE05",      "R_RACE06",      "R_RACE97",      "R_HISP",        "DRIVER",        
-           "EDUC01",        "EDUC02",        "EDUC03",        "EDUC04",        "EDUC05",        
-           "OCCAT01",       "OCCAT02",       "OCCAT03",       "OCCAT04",       "OCCAT97",       
-           "Telecommute00", "Telecommute01", "Telecommute02", "Telecommute03", "Telecommute04",
-           "medcon",        "deliver")
-
-a <- length(xvars)+1 
-xvars2 <- xvars
-xvars2[a] <- "distance"
-xvars
-xvars2
+xvars <- data13 %>% names() %>% .[c(3:77)]
+xvars2 <- c(xvars, "distance")
 
 summary.unmatched <-CreateTableOne(vars=xvars, strata="RS", data=data13, test=TRUE)
 print(summary.unmatched, smd=TRUE)
@@ -1576,8 +1580,9 @@ print(summary.unmatched, smd=TRUE)
 ## install.packages("logistf")
 ## library(logistf)
 
-# install.packages("optmatch", dep = TRUE)
-library(optmatch)
+install.packages("optmatch", dep = TRUE)
+# detach(package:optmatch)
+library(optmatch) 
 
 ## PSM for each UA separately 
 ## https://cran.r-project.org/web/packages/MatchIt/vignettes/matchit.pdf
@@ -1585,21 +1590,36 @@ matchit.UA <- NULL
 ## pooled.matchit <- NULL
 match.data.UA <- NULL 
 match.data.all <- NULL 
+
+mymatching <- function(i){
+  tryCatch(
+    {
+      matchit(
+        psm, method="nearest", ratio=1, replace=TRUE, 
+        distance="logit", reestimate = TRUE,  caliper=0.25, 
+        data=data13[data13$UACE10 == nhtsualist2$UACE10[i], ]) 
+    }, 
+    error=function(cond){
+      message(cond)
+      return(NA)
+    }
+  )
+}
+
+myresults <- map(1:50, mymatching) 
+map_lgl(myresults, ~.=="logical")
+
+matchit.UA <- 
+
+
+
+
+
 for (i in 1:50) {
-  ## glm.UA <- glm(RS ~ LIF_CYC02 + LIF_CYC03 + LIF_CYC04 + LIF_CYC05 + LIF_CYC06 + LIF_CYC07 + LIF_CYC08 +
-  ##                 LIF_CYC09 + LIF_CYC10 + WRKCOUNT + DRVRCNT  + NUMCHILD + YOUNGCHILD + HHFAMINC02 + 
-  ##                 HHFAMINC03 + HHFAMINC04 + HHFAMINC05 + HHFAMINC06 + HHFAMINC07 + HHFAMINC08 + 
-  ##                 HHFAMINC09 + HHFAMINC10 + HHFAMINC11 + HOMEOWN + homeden + workden + R_SEX + R_AGE + 
-  ##                 R_RACE02 + R_RACE03 + R_RACE04 + R_RACE05 + R_RACE06 + R_RACE97 + R_HISP + 
-  ##                 DRIVER + EDUC02 + EDUC03 + EDUC04 + EDUC05 + OCCAT02 + OCCAT03 + OCCAT04 + OCCAT97 + 
-  ##                 Telecommute01 + Telecommute02 + Telecommute03 + Telecommute04 + medcon + DELIVER + 
-  ##                 GTscore.std, family=binomial(link="probit"), control = list(maxit = 100), 
-  ##               data=data12[data12$UACE10==nhtsualist2$UACE10[i], ])
-  ## a <- fitted.values(glm.UA)
-  ## caliper.UA <- 0.25*sd(a)
   ## https://stats.stackexchange.com/questions/118636/nearest-neighbor-matching-in-r-using-matchit
   set.seed(1000)
-  matchit.UA <- matchit(psm, method="nearest", ratio=1, replace=TRUE, model="probit", 
+  matchit.UA <- matchit(psm, method="nearest", ratio=1, replace=TRUE, distance="logit", 
+                        reestimate = TRUE, 
                         data=data13[data13$UACE10 == nhtsualist2$UACE10[i], ], caliper=0.25)
   ## pooled.matchit <-rbind(pooled.matchit, pooled.match.UA) ## matchit object 
   match.data.UA <- match.data(matchit.UA)
@@ -1622,17 +1642,18 @@ summary(match.data.all[match.data.all$RS==1, ]$weights2)
 summary(match.data.all[match.data.all$RS==0, ]$weights2)
 table(match.data.all[match.data.all$RS==0, ]$weights2)
 
-match.data.all$weights3 <- NA
-match.data.all$weights3 <- ifelse(match.data.all$RS==1, 1, match.data.all$weights3)
-match.data.all$weights3 <- 
-  ifelse(match.data.all$RS==0 & match.data.all$weights2<1.1,  
-         match.data.all$distance/(1-match.data.all$distance), 
-         match.data.all$weights3)
-match.data.all$weights3 <- 
-  ifelse(match.data.all$RS==0 & match.data.all$weights2>1.1,  
-         match.data.all$distance/(1-match.data.all$distance)*match.data.all$weights2, 
-         match.data.all$weights3)
+
+match.data.all <- 
+  match.data.all %>%
+  mutate(
+    weights3 = ifelse(RS == 1, 1/distance, 1/(1-distance)*weights2)
+  )
+
 summary(match.data.all$weights3)
+
+table(match.data.all$UACE10)
+
+
 
 quantile(match.data.all$distance, c(0.05, 0.10, 0.90, 0.95))
 hist(match.data.all[match.data.all$RS==1, ]$distance)
