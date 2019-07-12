@@ -841,6 +841,19 @@ iv_all01 <-
 end_time <- Sys.time()
 end_time - start_time # Time difference of 0.07981992 secs
 
+names(iv_all01)
+hist(unlist(iv_all01[3]))
+hist(unlist(iv_all01[4]))
+hist(unlist(iv_all01[5]))
+hist(unlist(iv_all01[6]))
+hist(unlist(iv_all01[7]))
+
+hist(unlist(iv_all01[8]))
+hist(unlist(iv_all01[9]))
+hist(unlist(iv_all01[10]))
+hist(unlist(iv_all01[11]))
+hist(unlist(iv_all01[12]))
+
 write_rds(iv_all01, paste0(filepath, "/11_Scratch/iv_all01.rds"))  # 32,939 tracts
 # iv_all01 <- read_rds(paste0(filepath, "/11_Scratch/iv_all01.rds")) 
 
@@ -1518,7 +1531,7 @@ a[order(-a$User, -a$pctUser), ]
 psm <- glm(RS ~ LIF_CYC02 + LIF_CYC03 + LIF_CYC04 + LIF_CYC05 + LIF_CYC06 + LIF_CYC07 + LIF_CYC08 + LIF_CYC09 + 
              LIF_CYC10 + WRKCOUNT + DRVRCNT + NUMCHILD + YOUNGCHILD + HHFAMINC02 + HHFAMINC03 + HHFAMINC04 +
              HHFAMINC05 + HHFAMINC06 + HHFAMINC07 + HHFAMINC08 + HHFAMINC09 + HHFAMINC10 + HHFAMINC11 + 
-             HOMEOWN + homeden + workden + pctcoll + pctyoung + pctxveh + techden + servden + 
+             HOMEOWN2 + homeden + workden + pctcoll + pctyoung + pctxveh + techden + servden + 
              R_SEX + R_AGE + R_RACE02 + R_RACE03 + R_RACE04 + 
              R_RACE06 + R_RACE97 + R_HISP + DRIVER + EDUC02 + EDUC03 + EDUC04 + EDUC05 + 
              OCCAT02 + OCCAT03 + OCCAT04 + Telecommute01 + Telecommute02 + Telecommute03 +
@@ -1533,7 +1546,7 @@ xvars <- c("RIDESHARE",     "HHVEHCNT",      "HHVEHCNT2",     "PTUSED2",       "
            "LIF_CYC06",     "LIF_CYC07",     "LIF_CYC08",     "LIF_CYC09",     "LIF_CYC10",    
            "WRKCOUNT",      "DRVRCNT",       "NUMCHILD",      "YOUNGCHILD",    "HHFAMINC01",    "HHFAMINC02",    
            "HHFAMINC03",    "HHFAMINC04",    "HHFAMINC05",    "HHFAMINC06",    "HHFAMINC07",    "HHFAMINC08",    
-           "HHFAMINC09",    "HHFAMINC10",    "HHFAMINC11",    "HOMEOWN",       "homeden",       "workden",       
+           "HHFAMINC09",    "HHFAMINC10",    "HHFAMINC11",    "HOMEOWN2",       "homeden",       "workden",       
            "pctcoll",       "pctyoung",      "pctxveh",       "techden",       "servden",   
            "R_SEX",         "R_AGE",         "R_RACE01",      "R_RACE02",      "R_RACE03",      "R_RACE04",      
            "R_RACE05",      "R_RACE06",      "R_RACE97",      "R_HISP",        "DRIVER",        
@@ -1563,7 +1576,7 @@ print(summary.unmatched, smd=TRUE)
 ## install.packages("logistf")
 ## library(logistf)
 
-install.packages("optmatch", dep = TRUE)
+# install.packages("optmatch", dep = TRUE)
 library(optmatch)
 
 ## PSM for each UA separately 
@@ -1598,36 +1611,6 @@ for (i in 1:50) {
 }
 ## warnings() 
 
-## examine weights from matchit-set.seed(1000) method=nearest, ratio=3, replace=TRUE, caliper=0.25 i=1
-## temp1 <- as.data.frame(pooled.match.UA$match.matrix)
-## temp1$id <- rownames(temp1)
-## temp1 <- temp1[, c(4, 1:3)]
-## colnames(temp1) <- c("treatid", "match1", "match2", "match3")
-## temp1[1:20, ]
-
-## nrow(temp1[is.na(temp1$match1)==FALSE, ]) # 93 control cases
-## nrow(temp1[is.na(temp1$match2)==FALSE, ]) # 88 control cases (-5)
-## nrow(temp1[is.na(temp1$match3)==FALSE, ]) # 81 control cases (-12)
-# 200 unique control cases 
-
-## a <- ddply(temp1, .(match1), summarize, sum(is.na(match1)==FALSE))
-## b <- ddply(temp1, .(match2), summarize, sum(is.na(match1)==FALSE))
-## c <- ddply(temp1, .(match3), summarize, sum(is.na(match1)==FALSE))
-## colnames(a) <- c("matchid", "count")
-## colnames(b) <- c("matchid", "count")
-## colnames(c) <- c("matchid", "count")
-## d <- rbind(a, b)
-## d <- rbind(d, c)
-
-## e <- ddply(d, .(matchid), summarize, sum(count))
-## colnames(e) <- c("matchid", "cases")
-## e <- e[order(-e$cases), ]
-## table(e$cases)
-
-
-## summary(pooled.match[pooled.match$RS==1, ]$distance)
-## summary(pooled.match[pooled.match$RS==0, ]$distance)
-
 sum(match.data.all[match.data.all$RS==1, ]$weights)
 table(match.data.all[match.data.all$RS==1, ]$weights)
 sum(match.data.all[match.data.all$RS==0, ]$weights)
@@ -1639,14 +1622,17 @@ summary(match.data.all[match.data.all$RS==1, ]$weights2)
 summary(match.data.all[match.data.all$RS==0, ]$weights2)
 table(match.data.all[match.data.all$RS==0, ]$weights2)
 
-
-
 match.data.all$weights3 <- NA
 match.data.all$weights3 <- ifelse(match.data.all$RS==1, 1, match.data.all$weights3)
-match.data.all$weights3 <- ifelse(match.data.all$RS==0 & match.data.all$weights2<1.1,  match.data.all$distance/(1-match.data.all$distance), match.data.all$weights3)
-match.data.all$weights3 <- ifelse(match.data.all$RS==0 & match.data.all$weights2>1.1,  match.data.all$distance/(1-match.data.all$distance)*match.data.all$weights2, match.data.all$weights3)
+match.data.all$weights3 <- 
+  ifelse(match.data.all$RS==0 & match.data.all$weights2<1.1,  
+         match.data.all$distance/(1-match.data.all$distance), 
+         match.data.all$weights3)
+match.data.all$weights3 <- 
+  ifelse(match.data.all$RS==0 & match.data.all$weights2>1.1,  
+         match.data.all$distance/(1-match.data.all$distance)*match.data.all$weights2, 
+         match.data.all$weights3)
 summary(match.data.all$weights3)
-
 
 quantile(match.data.all$distance, c(0.05, 0.10, 0.90, 0.95))
 hist(match.data.all[match.data.all$RS==1, ]$distance)
@@ -1675,6 +1661,8 @@ sum(match.data.all[match.data.all$RS==1, ]$weights2)
 nrow(match.data.all[match.data.all$RS==0, ])
 sum(match.data.all[match.data.all$RS==0, ]$weights2)
 
+398*2 - (398+305)
+
 ## Created weighted data object: https://rpubs.com/kaz_yos/matching-weights
 
 library(grid) 
@@ -1694,7 +1682,7 @@ match.data.all.wt <- svydesign(ids = ~ 1, data = temp1, weights = ~ weights2)
 ## Weighted table with tableone
 summary.test <- svyCreateTableOne(vars = xvars, strata ="RS", data = match.data.all.wt)
 print(summary.test, test=TRUE, smd = TRUE)
-write.csv(print(summary.test, test=TRUE, smd = TRUE), file="M:/Uber_NHTS/31_Conference/AfterMatching03.csv")
+# write.csv(print(summary.test, test=TRUE, smd = TRUE), file="M:/Uber_NHTS/31_Conference/AfterMatching03.csv")
 ## ExtractSmd(summary.test)
 
 ## plot(pooled.match.UA, type="jitter")  ## matchit object, the last UA only after the for loop
