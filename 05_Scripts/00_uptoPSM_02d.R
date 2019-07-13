@@ -1564,7 +1564,12 @@ psm <- glm(
     R_SEX + R_AGE + R_RACE02 + R_RACE03 + R_RACE04 + R_RACE06 + R_RACE97 + 
     R_HISP + DRIVER + EDUC02 + EDUC03 + EDUC04 + EDUC05 + 
     OCCAT02 + OCCAT03 + OCCAT04 + Telecommute01 + Telecommute02 + Telecommute03 +
-    Telecommute04 + medcon + deliver, 
+    Telecommute04 + medcon + deliver +
+           UA02 + UA03 + UA04 + UA05 + UA06 + UA07 + UA08 + UA09 + UA10 + 
+    UA11 + UA12 + UA13 + UA14 + UA15 + UA16 + UA17 + UA18 + UA19 + UA20 + 
+    UA21 + UA22 + UA23 + UA24 + UA25 + UA26 + UA27 + UA28 + UA29 + UA30 + 
+    UA31 + UA32 + UA33 + UA34 + UA35 + UA36 + UA37 + UA38 + UA39 + UA40 + 
+    UA41 + UA42 + UA43 + UA44 + UA45 + UA46 + UA47 + UA48 + UA49 + UA50, 
   family=binomial(link="probit"), 
   control = list(maxit = 100), 
   data=data13
@@ -1646,6 +1651,39 @@ test <-
 
 test[test$RS==1, ]$cases
 test[test$RS==0, ]$cases
+
+match.ua50.result <- 
+  matchit(
+  psm, method="nearest", ratio=1, replace=TRUE, 
+  distance="logit", reestimate = TRUE,  caliper=0.25, 
+  data=data13) 
+
+match.ua50.data <- match.data(match.ua50.result)
+
+match.ua50.treat <- 
+  match.ua50.data %>%
+  filter(RS==1) %>%
+  group_by(UACE10) %>%
+  summarize(
+    n_treat = n()
+  )
+
+match.ua50.control <- 
+  match.ua50.data %>%
+  filter(RS==0) %>%
+  group_by(UACE10) %>%
+  summarize(
+    n_control = n()
+  ) 
+
+match.ua50.two <- 
+  match.ua50.treat %>%
+  left_join(match.ua50.control, by = "UACE10")
+
+View(match.ua50.two)
+
+hist(match.ua50.data$distance)
+
 
 sum(match.data.all[match.data.all$RS==1, ]$weights)
 table(match.data.all[match.data.all$RS==1, ]$weights)
