@@ -12,13 +12,15 @@ if (!require("devtools")) install.packages("devtools")
 if (!require("lehdr")) devtools::install_github("jamgreen/lehdr")
 
 if (!require("mapview")) install.packages("mapview", repos = "http://cran.us.r-project.org", dependencies = TRUE)
-if (!require("mapview")) install.packages("mapview")
+# if (!require("mapview")) install.packages("mapview")
 if (!require("tmap")) install.packages("tmap", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 
 if (!require("psych")) install.packages("psych", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 if (!require("tableone")) install.packages("tableone", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 if (!require("MatchIt")) install.packages("MatchIt", repos = "http://cran.us.r-project.org", dependencies = TRUE)
+if (!require("optmatch")) install.packages("optmatch", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 
+# detach(package:  )
 
 library(foreign)
 library(plyr)
@@ -27,12 +29,17 @@ library(tidyverse)
 library(sf)
 library(tidycensus)
 library(tigris)
+library(devtools)
 library(lehdr)
+library(mapview)
 library(tmap)
 
 library(psych)
 library(tableone)
 library(MatchIt)
+library(optmatch)
+library(survival)
+
 
 options(stringsAsFactors = FALSE)
 # check the integer max value 
@@ -55,24 +62,24 @@ tigris_cache_dir(paste0(filepath, "/05_Census/tigris"))
 
 # If tigris_cache_dir(paste0(filepath, "/05_Census/tigris")) doesn't work, 
 # Run below scripts line by line from the function.
-    path <- paste0(filepath, "/05_Census/tigris")
-    home <- Sys.getenv("HOME")
-    renv <- file.path(home, ".Renviron")
-    if (!file.exists(renv)) {
-      file.create(renv)
-    }
-    check <- readLines(renv)
-    if (isTRUE(any(grepl("TIGRIS_CACHE_DIR", check)))) {
-      oldenv <- read.table(renv, stringsAsFactors = FALSE)
-      newenv <- oldenv[-grep("TIGRIS_CACHE_DIR", oldenv), 
-                       ]
-      write.table(newenv, renv, quote = FALSE, sep = "\n", 
-                  col.names = FALSE, row.names = FALSE)
-    }
-    var <- paste0("TIGRIS_CACHE_DIR=", "'", path, "'")
-    write(var, renv, sep = "\n", append = TRUE)
-    message(sprintf("Your new tigris cache directory is %s. \nTo use now, restart R or run `readRenviron('~/.Renviron')`", 
-                    path))
+    # path <- paste0(filepath, "/05_Census/tigris")
+    # home <- Sys.getenv("HOME")
+    # renv <- file.path(home, ".Renviron")
+    # if (!file.exists(renv)) {
+    #   file.create(renv)
+    # }
+    # check <- readLines(renv)
+    # if (isTRUE(any(grepl("TIGRIS_CACHE_DIR", check)))) {
+    #   oldenv <- read.table(renv, stringsAsFactors = FALSE)
+    #   newenv <- oldenv[-grep("TIGRIS_CACHE_DIR", oldenv), 
+    #                    ]
+    #   write.table(newenv, renv, quote = FALSE, sep = "\n", 
+    #               col.names = FALSE, row.names = FALSE)
+    # }
+    # var <- paste0("TIGRIS_CACHE_DIR=", "'", path, "'")
+    # write(var, renv, sep = "\n", append = TRUE)
+    # message(sprintf("Your new tigris cache directory is %s. \nTo use now, restart R or run `readRenviron('~/.Renviron')`", 
+    #                 path))
 
 readRenviron("~/.Renviron")
 Sys.getenv('TIGRIS_CACHE_DIR')
@@ -1522,6 +1529,9 @@ nhts_cases_byua <- data13 %>% group_by(UACE10) %>% summarize(cases = n())
 data13 <- data13 %>%
   left_join(nhts_cases_byua, by = "UACE10")
 
+write_rds(data13, paste0(filepath, "/11_Scratch/data13.rds"))
+# data13 <- read_rds(paste0(filepath, "/11_Scratch/data13.rds")) 
+
 a <- ddply(data13, .(UACE10), summarize, 
            Raw=mean(cases), 
            User=sum(is.na(HOUSEID)==FALSE & RS==1), 
@@ -1572,7 +1582,6 @@ print(summary.unmatched, smd=TRUE)
 
 # nhtsualist2 <- read.csv(file="M:/Uber_NHTS/11_Scratch/nhtsualist2.csv", header=TRUE, sep=",")
 
-
 ## How to deal with perfect separation in logistic regression?
 ## https://stats.stackexchange.com/questions/11109/how-to-deal-with-perfect-separation-in-logistic-regression
 ## https://stats.stackexchange.com/questions/40876/what-is-the-difference-between-a-link-function-and-a-canonical-link-function
@@ -1580,16 +1589,14 @@ print(summary.unmatched, smd=TRUE)
 ## install.packages("logistf")
 ## library(logistf)
 
-install.packages("optmatch", dep = TRUE)
-# detach(package:optmatch)
-library(optmatch) 
-
 ## PSM for each UA separately 
 ## https://cran.r-project.org/web/packages/MatchIt/vignettes/matchit.pdf
+
 matchit.UA <- NULL
 ## pooled.matchit <- NULL
 match.data.UA <- NULL 
 match.data.all <- NULL 
+
 
 mymatching <- function(i){
   tryCatch(
@@ -1600,27 +1607,24 @@ mymatching <- function(i){
         data=data13[data13$UACE10 == nhtsualist2$UACE10[i], ]) 
     }, 
     error=function(cond){
-      message(cond)
+      message(paste(as.character(i), cond, "/n", sep=" "))
       return(NA)
+    }, 
+    warning=function(cond){
+      message(paste(as.character(i), cond, "/n", sep=" "))
     }
   )
 }
 
 myresults <- map(1:50, mymatching) 
-map_lgl(myresults, ~.=="logical")
+ua_remove <- c(1:50)[map_chr(myresults, typeof) == "logical"]
+ua_subset <- c(1:50)[map_chr(myresults, typeof) != "logical"]
+ua_subset %>% length()
 
-matchit.UA <- 
-
-
-
-
-
-for (i in 1:50) {
+for (i in ua_subset) {
   ## https://stats.stackexchange.com/questions/118636/nearest-neighbor-matching-in-r-using-matchit
   set.seed(1000)
-  matchit.UA <- matchit(psm, method="nearest", ratio=1, replace=TRUE, distance="logit", 
-                        reestimate = TRUE, 
-                        data=data13[data13$UACE10 == nhtsualist2$UACE10[i], ], caliper=0.25)
+  matchit.UA <- mymatching(i)
   ## pooled.matchit <-rbind(pooled.matchit, pooled.match.UA) ## matchit object 
   match.data.UA <- match.data(matchit.UA)
   ## https://r.iq.harvard.edu/docs/matchit/2.4-20/How_Exactly_are.html
@@ -1630,6 +1634,18 @@ for (i in 1:50) {
   match.data.all <- rbind(match.data.all, match.data.UA)  ## match.data object 
 }
 ## warnings() 
+
+table(match.data.all$UACE10) %>% length()
+
+test <- 
+  match.data.all %>%
+  group_by(UACE10, RS) %>%
+  summarize(
+    cases = n()
+  )
+
+test[test$RS==1, ]$cases
+test[test$RS==0, ]$cases
 
 sum(match.data.all[match.data.all$RS==1, ]$weights)
 table(match.data.all[match.data.all$RS==1, ]$weights)
