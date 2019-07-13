@@ -1372,7 +1372,7 @@ names(data10)
 
 # Step 4. Estimate binary logit/probit for balancing the final sample -----
 
-## Task 4-1. PSM estimation ----
+## Task 4-1. PSM data prep ----
 
 #4.1. Compute a new categorical variable, RS 
 # 0 - no use in the last 30 days 
@@ -1404,8 +1404,6 @@ b <- nrow(data10[data10$RS >=0, ])
 a$pct <- a[,2]/b*100
 sum(a$Freq)
 a
-
-## Task 4-2. PSM estimation ----
 
 ## (1- nrow(data10[is.na(data10$RS)==FALSE, ])/nrow(data10))*100 
 ## table(data10$RS)
@@ -1543,9 +1541,10 @@ a[order(-a$User, -a$pctUser), ]
 
 
 
+## Task 4-2. PSM run binary logit ----
+
 ## https://lists.gking.harvard.edu/pipermail/matchit/2017-June/000728.html
 ## https://www.kdnuggets.com/2018/01/propensity-score-matching-r.html 
-
 ## install.packages("stargazer")
 ## library(stargazer)
 
@@ -1564,12 +1563,12 @@ psm <- glm(
     R_SEX + R_AGE + R_RACE02 + R_RACE03 + R_RACE04 + R_RACE06 + R_RACE97 + 
     R_HISP + DRIVER + EDUC02 + EDUC03 + EDUC04 + EDUC05 + 
     OCCAT02 + OCCAT03 + OCCAT04 + Telecommute01 + Telecommute02 + Telecommute03 +
-    Telecommute04 + medcon + deliver +
-           UA02 + UA03 + UA04 + UA05 + UA06 + UA07 + UA08 + UA09 + UA10 + 
-    UA11 + UA12 + UA13 + UA14 + UA15 + UA16 + UA17 + UA18 + UA19 + UA20 + 
-    UA21 + UA22 + UA23 + UA24 + UA25 + UA26 + UA27 + UA28 + UA29 + UA30 + 
-    UA31 + UA32 + UA33 + UA34 + UA35 + UA36 + UA37 + UA38 + UA39 + UA40 + 
-    UA41 + UA42 + UA43 + UA44 + UA45 + UA46 + UA47 + UA48 + UA49 + UA50, 
+    Telecommute04 + medcon + deliver, #+
+    #UA02 + UA03 + UA04 + UA05 + UA06 + UA07 + UA08 + UA09 + UA10 + 
+    #UA11 + UA12 + UA13 + UA14 + UA15 + UA16 + UA17 + UA18 + UA19 + UA20 + 
+    #UA21 + UA22 + UA23 + UA24 + UA25 + UA26 + UA27 + UA28 + UA29 + UA30 + 
+    #UA31 + UA32 + UA33 + UA34 + UA35 + UA36 + UA37 + UA38 + UA39 + UA40 + 
+    #UA41 + UA42 + UA43 + UA44 + UA45 + UA46 + UA47 + UA48 + UA49 + UA50, 
   family=binomial(link="probit"), 
   control = list(maxit = 100), 
   data=data13
@@ -1582,10 +1581,7 @@ xvars2 <- c(xvars, "distance")
 
 summary.unmatched <-CreateTableOne(vars=xvars, strata="RS", data=data13, test=TRUE)
 print(summary.unmatched, smd=TRUE)
-## write.csv(print(summary.unmatched, smd=TRUE), file="M:/Uber_NHTS/31_Conference/BeforeMatching03.csv")
 ## ExtractSmd(summary.unmatched)
-
-# nhtsualist2 <- read.csv(file="M:/Uber_NHTS/11_Scratch/nhtsualist2.csv", header=TRUE, sep=",")
 
 ## How to deal with perfect separation in logistic regression?
 ## https://stats.stackexchange.com/questions/11109/how-to-deal-with-perfect-separation-in-logistic-regression
@@ -1594,14 +1590,10 @@ print(summary.unmatched, smd=TRUE)
 ## install.packages("logistf")
 ## library(logistf)
 
-## PSM for each UA separately 
 ## https://cran.r-project.org/web/packages/MatchIt/vignettes/matchit.pdf
 
-matchit.UA <- NULL
-## pooled.matchit <- NULL
-match.data.UA <- NULL 
-match.data.all <- NULL 
 
+# Task 4-2-1. within-UA matching ----  
 
 mymatching <- function(i){
   tryCatch(
@@ -1622,100 +1614,62 @@ mymatching <- function(i){
 }
 
 myresults <- map(1:50, mymatching) 
-ua_remove <- c(1:50)[map_chr(myresults, typeof) == "logical"]
-ua_subset <- c(1:50)[map_chr(myresults, typeof) != "logical"]
+ua_remove <- c(1:50)[map_chr(myresults, typeof) != "list"]
+ua_subset <- c(1:50)[map_chr(myresults, typeof) == "list"]
 ua_subset %>% length()
 
+match.UA <- NULL
+match.data.UA <- NULL 
+match.data.all <- NULL
 for (i in ua_subset) {
   ## https://stats.stackexchange.com/questions/118636/nearest-neighbor-matching-in-r-using-matchit
   set.seed(1000)
-  matchit.UA <- mymatching(i)
-  ## pooled.matchit <-rbind(pooled.matchit, pooled.match.UA) ## matchit object 
-  match.data.UA <- match.data(matchit.UA)
+  match.UA <- mymatching(i)
+  match.data.UA <- match.data(match.UA)
   ## https://r.iq.harvard.edu/docs/matchit/2.4-20/How_Exactly_are.html
   b <- min(match.data.UA[match.data.UA$RS==0, ]$weights)
-  #weights2 <- numeric()
-  match.data.UA$weights2 <- ifelse(match.data.UA$RS==0, match.data.UA$weights/b, match.data.UA$weights)
+  match.data.UA$weights2 <- as.integer(ifelse(match.data.UA$RS==0, match.data.UA$weights/b, match.data.UA$weights))
   match.data.all <- rbind(match.data.all, match.data.UA)  ## match.data object 
 }
 ## warnings() 
 
-table(match.data.all$UACE10) %>% length()
-
-test <- 
+match.data.within <-  # 5,129 cases from 11 UAs, pretty good 
   match.data.all %>%
-  group_by(UACE10, RS) %>%
-  summarize(
-    cases = n()
+  as_tibble() %>%
+  mutate(
+    weights3 = ifelse(RS==1, 1, distance/(1-distance)*weights2)
   )
+# for now, let's use weights2
 
-test[test$RS==1, ]$cases
-test[test$RS==0, ]$cases
 
-match.ua50.result <- 
+# Task 4-2-2. across-UA matching ----  
+
+match.UA50 <- 
   matchit(
-  psm, method="nearest", ratio=1, replace=TRUE, 
-  distance="logit", reestimate = TRUE,  caliper=0.25, 
-  data=data13) 
-
-match.ua50.data <- match.data(match.ua50.result)
-
-match.ua50.treat <- 
-  match.ua50.data %>%
-  filter(RS==1) %>%
-  group_by(UACE10) %>%
-  summarize(
-    n_treat = n()
-  )
-
-match.ua50.control <- 
-  match.ua50.data %>%
-  filter(RS==0) %>%
-  group_by(UACE10) %>%
-  summarize(
-    n_control = n()
+    psm, method="nearest", ratio=1, replace=TRUE, 
+    distance="logit", reestimate = TRUE,  caliper=0.25, 
+    data=data13
   ) 
 
-match.ua50.two <- 
-  match.ua50.treat %>%
-  left_join(match.ua50.control, by = "UACE10")
+b <- match.data(match.UA50) %>%
+  filter(RS==0) %>%
+  .$weights %>% 
+  min() 
 
-View(match.ua50.two)
-
-hist(match.ua50.data$distance)
-
-
-sum(match.data.all[match.data.all$RS==1, ]$weights)
-table(match.data.all[match.data.all$RS==1, ]$weights)
-sum(match.data.all[match.data.all$RS==0, ]$weights)
-table(match.data.all[match.data.all$RS==0, ]$weights)
-
-sum(match.data.all[match.data.all$RS==1, ]$weights2)
-sum(match.data.all[match.data.all$RS==0, ]$weights2)
-summary(match.data.all[match.data.all$RS==1, ]$weights2)
-summary(match.data.all[match.data.all$RS==0, ]$weights2)
-table(match.data.all[match.data.all$RS==0, ]$weights2)
-
-
-match.data.all <- 
-  match.data.all %>%
+match.UA50.across <- # 6,842 cases from 50 UAs
+  match.data(match.UA50) %>% 
+  as_tibble() %>% 
   mutate(
-    weights3 = ifelse(RS == 1, 1/distance, 1/(1-distance)*weights2)
-  )
-
-summary(match.data.all$weights3)
-
-table(match.data.all$UACE10)
+    weights2 = as.integer(ifelse(RS==0, weights/b, weights)), 
+    weights3 = ifelse(RS==0, distance/(1-distance), 1) 
+  )  
 
 
+# Task 4-3. before/after matching comparison ----  
 
-quantile(match.data.all$distance, c(0.05, 0.10, 0.90, 0.95))
-hist(match.data.all[match.data.all$RS==1, ]$distance)
-hist(match.data.all[match.data.all$RS==0, ]$distance)
-
-## weighted histogram for ln(HHVEHCNT)
-## install.packages("plotrix")
+install.packages("plotrix", dependencies = TRUE)
 library(plotrix)
+
 temp <- match.data.all[, c(1:8, 73:75)]
 temp$LNVEH    <- log(temp$HHVEHCNT+1) 
 ## weighted.hist(temp[temp$RS==1, ]$LNVEH, temp[temp$RS==1, ]$weights3)
@@ -1877,7 +1831,7 @@ colnames(data13)
 
 
 
-## Task 4-3. Prepare for mplus estimation ----
+## Task 4-4. Prepare for mplus estimation ----
 
 varname <- as.data.frame(colnames(data13))
 nrow(varname)-54
