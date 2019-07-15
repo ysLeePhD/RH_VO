@@ -1686,6 +1686,8 @@ match.data.within <-  # 5,163 cases from 11 UAs, pretty good
   )
 # for now, let's use weights2
 
+match.data.within %>% group_by(RS, UACE10) %>% summarize(wtsum = sum(weights2)) %>% spread(key = RS, value = wtsum)
+
 
 # Task 4-2-2. across-UA matching ----  
 
@@ -1881,65 +1883,123 @@ colnames(data13)
 
 
 
+
 ## Task 4-4. Prepare for mplus estimation ----
 
-colnames(match.UA50.across)
-varname <- as.data.frame(colnames(match.UA50.across))
-nrow(varname)-57
+### Task 4-4-1. Within UA matching ---- 
 
-mplusname <- c("id1", "id2", "y1",  "y2",  "y3",  "y4",  "y5",  "y6",  
+match.data.within %>% names()
+ualist.UA11.within <- match.data.within %>% group_by(UACE10) %>% summarize(n = n())
+nhtsualist2$order = rownames(nhtsualist2)
+uslist.UA11.within %>%
+    left_join(nhtsualist2, by = "UACE10") %>%
+    .$order
+
+match.data.within %>% filter(RS==1) %>% .$weights2 %>% table()
+match.data.within %>% filter(RS==0) %>% .$weights2 %>% table() 
+
+match.data.within2 <- 
+  match.data.within %>% 
+  select(-NAME10, -cases, -distance, -weights, -weights3) %>%
+  select(-UA01, -UA02, -UA03, -UA04, -UA05, -UA06, -UA07, -UA08, -UA09, -UA10, 
+         -UA11, -UA13, -UA14, -UA15, -UA17, -UA18, -UA19, -UA20, 
+         -UA22, -UA23, -UA24, -UA26, -UA27, -UA28, -UA30, 
+         -UA31, -UA32, -UA33, -UA34, -UA35, -UA36, -UA37, -UA38, -UA39, 
+         -UA41, -UA42, -UA43, -UA47, -UA48, -UA49)
+names(match.data.within2)
+
+varname.long <- match.data.within2[, c(36, 5, 8, 6:7, 9:35, 37:89)] %>% names() 
+
+varname.short <- c("ybe", "yvo",  "yrh",  "ypt",  "ywb",   
+                   "x1",  "x2",  "x3",  "x4",  "x5",  "x6",  "x7",  "x8",  "x9",  "x10", 
+                   "x11", "x12", "x13", "x14", "x15", "x16", "x17", "x18", "x19", "x20", 
+                   "x21", "x22", "x23", "x24", "x25", "x26", "x27", "x28", "x29", "x30", 
+                   "x31", "x32", "x33", "x34", "x35", "x36", "x37", "x38", "x39", "x40",
+                   "x41", "x42", "x43", "x44", "x45", "x46", "x47", "x48", "x49", "x50", 
+                   "x51", "x52", "x53", "x54", "x55", "x56", "x57", "x58", "x59", "x60", 
+                   "x61", "x62", "x63", "x64", "x65", "x66", "x67", "x68", 
+                   "UA",  "UA12", "UA16", "UA21", "UA25", "UA29", "UA40", "UA44", "UA45", 
+                   "UA46", "UA50", "wt2") 
+
+varname.dict <- cbind(varname.short, varname.long) 
+
+match.data.within2[, c(36, 5, 8, 6:7, 9:35, 37:89)] %>%
+  write.csv(file = "M:/across01_within.csv")
+
+
+
+### Task 4-4-2. Across UA matching ---- 
+
+match.UA50.across %>% names()
+match.UA50.across %>% select(-NAME10, -cases, -distance, -weights, -weights3) %>% names()
+
+match.UA50.across[, c(5, 8, 6:7)] %>% map(table)
+match.UA50.across[, c(36, 5, 8, 6:7, 9:35, 37:78, 131:134)] %>% names()
+match.UA50.across[, c(36, 5, 8, 6:7, 9:35, 37:78, 131:134)] %>% .[, c(48:54)] %>% map(table)
+
+
+%>% 
+  write.csv(file.path(filepath, "15_Model/round02/across01.csv"))
+
+varname.long <- match.UA50.across[, c(36, 5, 8, 6:7, 9:35, 37:78, 131:134)] %>% names() 
+
+varname.short <- c("ybe", "yvo",  "yrh",  "ypt",  "ywb",   
                "x1",  "x2",  "x3",  "x4",  "x5",  "x6",  "x7",  "x8",  "x9",  "x10", 
                "x11", "x12", "x13", "x14", "x15", "x16", "x17", "x18", "x19", "x20", 
                "x21", "x22", "x23", "x24", "x25", "x26", "x27", "x28", "x29", "x30", 
                "x31", "x32", "x33", "x34", "x35", "x36", "x37", "x38", "x39", "x40",
                "x41", "x42", "x43", "x44", "x45", "x46", "x47", "x48", "x49", "x50", 
                "x51", "x52", "x53", "x54", "x55", "x56", "x57", "x58", "x59", "x60", 
-               "x61", "x62", "x63", "x64", "x65", "x66", "x67", "x68", "x69", 
-               "ps", "WT1", "WT2", "WT3") 
+               "x61", "x62", "x63", "x64", "x65", "x66", "x67", "x68", 
+               "UA",  "ps", "WT1", "WT2", "WT3") 
 
-length(mplusname)-54
-
-a <- cbind(varname, mplusname) 
-matching.cov.list <- c("HOUSEID", "PERSONID", "# RIDESHARE", "# HHVEHCNT", "O HHVENCHT", "LN HHVENCNT", 
-                       "O PT", "O Walk/Bike", "Yes RIDESHARE",
-                       "one adult, no children", "2+ adults, no children", "one adult, youngest child 0-5", "2+ adults, youngest child 0-5", 
-                       "one adult, youngest child 6-15", "2+ adults, youngest child 6-15", "one adult, youngest child 16-21", "2+ adults, youngest child 16-21", "one adult, retired, no children", 
-                       "2+adults, retired, no children", "# HH worker", "# HH driver", "# child", "Yes child 0-4", 
-                       "Less than $10,000", "$10,000-$14,999", "$15,000-$24,999", "$25,000-$34,999", "$35,000-$49,999", 
-                       "$50,000-$74,999", "$75,000-$99,999", "$100,000-$124,999", "$125,000-$149,999", "$150,000-$199,999", 
-                       "$200,000 or more", "Home owner", "Home density", "Work density", "% with collge", 
-                       "% 25-34", "% HH with no cars", "Tech job density", "Service job density", "Female", 
-                       "Age", "White", "Black", "Asian", "American Indian", 
-                       "Pacific Islander", "Multiple races", "Some other race", "Hispanic", "Driver", 
-                       "Less than HS", "Highschool", "Some college", "Bachelor's", "Graduate",
-                       "Sales or service", "Clerical/admin", "Manufacturing", "Professional", "Something else", 
-                       "Telecommute 0", "Telecommute 1-3", "Telecommute 4-7", "Telecommute 8-11", "Telecommute 12+", 
-                       "Medical condition", "# online delivery", "Google Trend", "UACE10",  
-                       "UA01", "UA02", "UA03", "UA04", "UA05", "UA06", "UA07", "UA08", "UA09", "UA10", 
-                       "UA11", "UA12", "UA13", "UA14", "UA15", "UA16", "UA17", "UA18", "UA19", "UA20", 
-                       "UA21", "UA22", "UA23", "UA24", "UA25", "UA26", "UA27", "UA28", "UA29", "UA30", 
-                       "UA31", "UA32", "UA33", "UA34", "UA35", "UA36", "UA37", "UA38", "UA39", "UA40", 
-                       "UA41", "UA42", "UA43", "UA44", "UA45", "UA46", "UA47", "UA48", "UA49", "UA50",
-                       "pscore", "WT1", "WT2", "WT3")
-length(matching.cov.list)-54
-b <- cbind(a, matching.cov.list)
-b[3:9, ]
-b[10:72, ]
-b
-
-table(data13$deliver) # categorical variable - should be divided for each level 
+varname.dict <- cbind(varname.short, varname.long) 
 
 
-write.csv(data13, "M:/Uber_NHTS/15_Model/pooled_match_03.csv")
 
-source("http://pcwww.liv.ac.uk/~william/R/crosstab.r")
-crosstab(data13, col.vars="NWBMODE2", row.vars=c("EDUC03", "EDUC04", "EDUC05"), type=
-           "f", addmargins=FALSE)
 
-nhtsualist$uaorder <- rownames(nhtsualist)
 
-ualist <- ddply(data13, .(UACE10), summarize, Count=sum(is.na(UACE10)==FALSE))
-merge(ualist, nhtsualist, by=c("UACE10"))
+
+
+
+# matching.cov.list <- c("HOUSEID", "PERSONID", "# RIDESHARE", "# HHVEHCNT", "O HHVENCHT", "LN HHVENCNT", 
+#                        "O PT", "O Walk/Bike", "Yes RIDESHARE",
+#                        "one adult, no children", "2+ adults, no children", "one adult, youngest child 0-5", "2+ adults, youngest child 0-5", 
+#                        "one adult, youngest child 6-15", "2+ adults, youngest child 6-15", "one adult, youngest child 16-21", "2+ adults, youngest child 16-21", "one adult, retired, no children", 
+#                        "2+adults, retired, no children", "# HH worker", "# HH driver", "# child", "Yes child 0-4", 
+#                        "Less than $10,000", "$10,000-$14,999", "$15,000-$24,999", "$25,000-$34,999", "$35,000-$49,999", 
+#                        "$50,000-$74,999", "$75,000-$99,999", "$100,000-$124,999", "$125,000-$149,999", "$150,000-$199,999", 
+#                        "$200,000 or more", "Home owner", "Home density", "Work density", "% with collge", 
+#                        "% 25-34", "% HH with no cars", "Tech job density", "Service job density", "Female", 
+#                        "Age", "White", "Black", "Asian", "American Indian", 
+#                        "Pacific Islander", "Multiple races", "Some other race", "Hispanic", "Driver", 
+#                        "Less than HS", "Highschool", "Some college", "Bachelor's", "Graduate",
+#                        "Sales or service", "Clerical/admin", "Manufacturing", "Professional", "Something else", 
+#                        "Telecommute 0", "Telecommute 1-3", "Telecommute 4-7", "Telecommute 8-11", "Telecommute 12+", 
+#                        "Medical condition", "# online delivery", "Google Trend", "UACE10",  
+#                        "UA01", "UA02", "UA03", "UA04", "UA05", "UA06", "UA07", "UA08", "UA09", "UA10", 
+#                        "UA11", "UA12", "UA13", "UA14", "UA15", "UA16", "UA17", "UA18", "UA19", "UA20", 
+#                        "UA21", "UA22", "UA23", "UA24", "UA25", "UA26", "UA27", "UA28", "UA29", "UA30", 
+#                        "UA31", "UA32", "UA33", "UA34", "UA35", "UA36", "UA37", "UA38", "UA39", "UA40", 
+#                        "UA41", "UA42", "UA43", "UA44", "UA45", "UA46", "UA47", "UA48", "UA49", "UA50",
+#                        "pscore", "WT1", "WT2", "WT3")
+# length(matching.cov.list)-54
+# b <- cbind(a, matching.cov.list)
+# b[3:9, ]
+# b[10:72, ]
+# b
+# 
+# table(data13$deliver) # categorical variable - should be divided for each level 
+# 
+# 
+# source("http://pcwww.liv.ac.uk/~william/R/crosstab.r")
+# crosstab(data13, col.vars="NWBMODE2", row.vars=c("EDUC03", "EDUC04", "EDUC05"), type=
+#            "f", addmargins=FALSE)
+# 
+# nhtsualist$uaorder <- rownames(nhtsualist)
+# 
+# ualist <- ddply(data13, .(UACE10), summarize, Count=sum(is.na(UACE10)==FALSE))
+# merge(ualist, nhtsualist, by=c("UACE10"))
 
 ## boxplot(as.numeric(data13$NWBMODE2)~UA44, data=data13)
 ## summary(as.numeric(as.character(data13[data13$UA44==1 & data13$RS==1, ]$NWBMODE2)))
