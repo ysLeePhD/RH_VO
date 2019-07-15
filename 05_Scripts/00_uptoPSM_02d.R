@@ -715,6 +715,7 @@ var2012 %>%
   filter(name %in% varlist2)
 
 get_acs_tract2 <- function(i){
+  start_time <- Sys.time()
   tryCatch(
     {
       get_acs(geography = "tract", state = list_st_fips[[1]][i],  
@@ -726,6 +727,8 @@ get_acs_tract2 <- function(i){
       return(NA)
     }
   )
+  end_time <- Sys.time()
+  end_time - start_time # Time difference  
 }
 
 # first-round api call 
@@ -733,12 +736,21 @@ get_acs_tract2 <- function(i){
 start_time <- Sys.time()
 tract_acs2012_raw <- map(1:37, get_acs_tract2) 
 end_time <- Sys.time()
-end_time - start_time # Time difference of 1.477453 hours
+end_time - start_time # Time difference of 49.94235 mins
 
 # second-round api call 
 tract_acs2012_raw_okay <- c(1:37)[map_lgl(tract_acs2012_raw, is.list)]        
-tract_acs2012_raw_fail <- c(1:37)[map_lgl(tract_acs2017_raw, ~!is.list(.))]  
-map(tract_acs2012_raw_fail, function(x) tract_acs2012_raw[[x]] <<- get_acs_tract2(x))
+tract_acs2012_raw_fail <- c(1:37)[map_lgl(tract_acs2012_raw, ~!is.list(.))]   
+write_rds(tract_acs2012_raw, path = paste0(filepath, "/11_Scratch/tract_acs2012_raw.rds"))
+# tract_acs2012_raw <- read_rds(paste0(filepath, "/11_Scratch/tract_acs2012_raw.rds.rds"))
+
+map(tract_acs2012_raw_fail, function(x) tract_acs2012_raw[[x]] <<- get_acs_tract2(x))  
+
+# for loop 
+# for ( c(1:37)[map_lgl(tract_acs2012_raw, ~!is.list(.))] %>% length() >= 1 ){
+#   map(tract_acs2012_raw_fail, function(x) tract_acs2012_raw[[x]] <<- get_acs_tract2(x))  
+#   tract_acs2012_raw_fail <- c(1:37)[map_lgl(tract_acs2012_raw, ~!is.list(.))]   
+# }
 
 st_tr_tb <- 
   trd %>%
@@ -765,7 +777,13 @@ for (i in 1:37){
 iv_acs01 <- iv_acs00 %>% bind_rows() # 32939 tracts 
 # https://stackoverflow.com/questions/2851327/convert-a-list-of-data-frames-into-one-data-frame
 end_time <- Sys.time()
-end_time - start_time # Time difference of 29.89684 mins
+end_time - start_time  
+
+write_rds(iv_acs00, path = paste0(filepath, "/11_Scratch/iv_acs00.rds"))
+# iv_acs00 <- read_rds(paste0(filepath, "/11_Scratch/iv_acs00.rds"))
+
+write_rds(iv_acs01, path = paste0(filepath, "/11_Scratch/iv_acs01.rds"))
+# iv_acs01 <- read_rds(paste0(filepath, "/11_Scratch/iv_acs01.rds"))
 
 list_st_names_lowercase <- list_st_names %>% tolower()
 
@@ -779,7 +797,11 @@ for(i in 1:37) {
 iv_job01 <- iv_job00 %>% bind_rows() 
 # https://stackoverflow.com/questions/2851327/convert-a-list-of-data-frames-into-one-data-frame
 end_time <- Sys.time()
-end_time - start_time # Time difference of 1.110486 mins
+end_time - start_time # Time difference of 39.05497 secs
+
+write_rds(iv_job01, path = paste0(filepath, "/11_Scratch/iv_job01.rds"))
+# iv_job01 <- read_rds(paste0(filepath, "/11_Scratch/iv_job01.rds"))
+
 
 trd %>% filter(tr == "25005611202")
 # A tibble: 2 x 2
@@ -801,15 +823,21 @@ trd %>% filter(tr == "36119012502")
 start_time <- Sys.time()
 iv_job02 <- # 32939 tracts 
   trd %>% 
+  group_by(tr) %>%
   left_join(iv_job01, by=c("tr" = "w_tract")) %>%
   mutate(
     GEOID = tr, 
     techjob = CNS09 + CNS12, 
     servjob = CNS17 + CNS18 
   ) %>%
+  ungroup() %>% 
   select(GEOID, UACE10, techjob, servjob)
 end_time <- Sys.time()
-end_time - start_time # Time difference of 2.987984 mins
+end_time - start_time # Time difference of 2.962098 mins
+
+
+write_rds(iv_job02, path = paste0(filepath, "/11_Scratch/iv_job02.rds"))
+# iv_job02 <- read_rds(paste0(filepath, "/11_Scratch/iv_job02.rds"))
 
 
 start_time <- Sys.time()
@@ -830,39 +858,34 @@ iv_all00 <-
   ) %>%
   select(GEOID, UACE10, pctcoll, pctyoung, pctxveh, techden, servden)
 end_time <- Sys.time()
-end_time - start_time # Time difference of 3.036413 mins
+end_time - start_time # Time difference of 2.965564 mins
 
 write_rds(iv_all00, paste0(filepath, "/11_Scratch/iv_all00.rds"))
 # iv_all00 <- read_rds(paste0(filepath, "/11_Scratch/iv_all00.rds")) 
+
 
 # standardize by UA 
 start_time <- Sys.time()
 iv_all01 <- 
   iv_all00 %>%
+  mutate(
+    ln.pctcoll  = log(pctcoll+1), 
+    ln.pctyoung = log(pctyoung+1), 
+    ln.pctxveh  = log(pctxveh+1), 
+    ln.techden  = ifelse(is.na(techden), 0, log(techden+1)), 
+    ln.servden  = ifelse(is.na(servden), 0, log(servden+1)) 
+  ) %>% 
   group_by(UACE10) %>% 
   mutate(
-    z.pctcoll =scale(pctcoll), 
-    z.pctyoung=scale(pctyoung), 
-    z.pctxveh =scale(pctxveh), 
-    z.techden =scale(techden), 
-    z.servden =scale(servden)
+    z.pctcoll =scale(ln.pctcoll), 
+    z.pctyoung=scale(ln.pctyoung), 
+    z.pctxveh =scale(ln.pctxveh), 
+    z.techden =scale(ln.techden), 
+    z.servden =scale(ln.servden)
   ) %>%
   ungroup()
 end_time <- Sys.time()
 end_time - start_time # Time difference of 0.07981992 secs
-
-names(iv_all01)
-hist(unlist(iv_all01[3]))
-hist(unlist(iv_all01[4]))
-hist(unlist(iv_all01[5]))
-hist(unlist(iv_all01[6]))
-hist(unlist(iv_all01[7]))
-
-hist(unlist(iv_all01[8]))
-hist(unlist(iv_all01[9]))
-hist(unlist(iv_all01[10]))
-hist(unlist(iv_all01[11]))
-hist(unlist(iv_all01[12]))
 
 write_rds(iv_all01, paste0(filepath, "/11_Scratch/iv_all01.rds"))  # 32,939 tracts
 # iv_all01 <- read_rds(paste0(filepath, "/11_Scratch/iv_all01.rds")) 
@@ -1010,19 +1033,22 @@ colnames(data03)[20:24] <-
   c("home.den.st", "home.den.pp", "home.jobrich", "home.oldnbhd", "home.sfh")
 
 data04 <- data03 %>% 
-  left_join(iv_all01[, c(1:5)], by=c("GEOID", "UACE10"))
+  left_join(iv_all01[, c("GEOID", "UACE10", "z.pctcoll", "z.pctyoung", "z.pctxveh")], # use of z-scores
+            by=c("GEOID", "UACE10"))
 
 colnames(data04)[25:27] <- 
   c("home.pctcoll", "home.pctyoung", "home.pctxveh")
 
 data04$GEOID <- paste0(data04$WKSTFIPS, data04$WKCNFIPS, data04$WORKCT)
 
+
 iv_all01_2 <- 
   iv_all01 %>% 
+  select(GEOID, UACE10, z.techden, z.servden) %>% 
   group_by(GEOID) %>%
   summarize(
-    techden = mean(techden), 
-    servden = mean(servden)
+    techden = mean(z.techden), # use of z-scores
+    servden = mean(z.servden)  # use of z-scores
   ) %>%
   ungroup()
 
@@ -1043,6 +1069,8 @@ data06 <- left_join(data05, tract_be7_2, by="GEOID")
 data06$GEOID <- NULL
 
 colnames(data06)[27:28] <- c("work.den.tech", "work.den.serv")
+
+map(data06, summary)
 
 # rm("data02", "data03", "beall7", "ivall4")
 # How to make ML1, ML1 in data04 change to homeden, workden?  
@@ -1368,6 +1396,8 @@ data10 <- left_join(temp01, data09, by=c("HOUSEID", "PERSONID"))
 nrow(data10)
 names(data10)
 
+write_rds(data10, file.path(filepath, "11_Scratch/data10.rds"))
+# data10 <- read_rds(file.path(filepath, "11_Scratch/data10.rds"))
 
 
 # Step 4. Estimate binary logit/probit for balancing the final sample -----
@@ -1485,7 +1515,7 @@ usedvars <- c(
   "medcon", "deliver", "UACE10"
   ) # "GTscore.std", 
 data12 <- data11[, usedvars]
-data12 <- data12[complete.cases(data12), ]
+data12 <- data12[complete.cases(data12), ] # drop cases who worked outside of UAs 
 names(data12)
 
 # map_chr(data12, class)
@@ -1549,6 +1579,7 @@ a[order(-a$User, -a$pctUser), ]
 ## library(stargazer)
 
 names(data13)
+map(data13, summary)
 
 psm <- glm(
   RS ~ 
@@ -1633,7 +1664,7 @@ for (i in ua_subset) {
 }
 ## warnings() 
 
-match.data.within <-  # 5,129 cases from 11 UAs, pretty good 
+match.data.within <-  # 5,163 cases from 11 UAs, pretty good 
   match.data.all %>%
   as_tibble() %>%
   mutate(
@@ -1656,7 +1687,7 @@ b <- match.data(match.UA50) %>%
   .$weights %>% 
   min() 
 
-match.UA50.across <- # 6,842 cases from 50 UAs
+match.UA50.across <- # 6,822 cases from 50 UAs
   match.data(match.UA50) %>% 
   as_tibble() %>% 
   mutate(
@@ -1665,48 +1696,49 @@ match.UA50.across <- # 6,842 cases from 50 UAs
   )  
 
 
+
+
+
 # Task 4-3. before/after matching comparison ----  
 
-install.packages("plotrix", dependencies = TRUE)
+if (!require("plotrix")) install.packages("plotrix", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 library(plotrix)
 
-temp <- match.data.all[, c(1:8, 73:75)]
+temp <- match.UA50.across[, c(1:78, 131:134)]
 temp$LNVEH    <- log(temp$HHVEHCNT+1) 
 ## weighted.hist(temp[temp$RS==1, ]$LNVEH, temp[temp$RS==1, ]$weights3)
 ## weighted.hist(temp[temp$RS==0, ]$LNVEH, temp[temp$RS==0, ]$weights3)
 
-hist(match.data.all$HHVEHCNT)
-summary(match.data.all$weights)
-summary(match.data.all$weights2)
-summary(match.data.all$weights3)
-## hist(pooled.match$weights3)
-summary(match.data.all$distance)
-## nrow(pooled.match[pooled.match$distance<0.01, ])
-## ps <- 0.9999
-## ps/(1-ps) 
+hist(temp$HHVEHCNT)
+summary(temp$weights)
+summary(temp$weights2)
+summary(temp$weights3)
+summary(temp$distance)
 
-nrow(match.data.all[match.data.all$RS==1, ])
-sum(match.data.all[match.data.all$RS==1, ]$weights2)
-nrow(match.data.all[match.data.all$RS==0, ])
-sum(match.data.all[match.data.all$RS==0, ]$weights2)
-
-398*2 - (398+305)
+nrow(temp[temp$RS==1, ])
+sum(temp[temp$RS==1, ]$weights2)
+nrow(temp[temp$RS==0, ])
+sum(temp[temp$RS==0, ]$weights2)
 
 ## Created weighted data object: https://rpubs.com/kaz_yos/matching-weights
 
+if (!require("grid")) install.packages("grid", repos = "http://cran.us.r-project.org", dependencies = TRUE)
+if (!require("Matrix")) install.packages("Matrix", repos = "http://cran.us.r-project.org", dependencies = TRUE)
+if (!require("survey")) install.packages("survey", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 library(grid) 
 library(Matrix)
 library(survey)
 
-temp1 <- match.data.all
-temp1$HHVEHCNT2 <- as.numeric(as.character(temp1$HHVEHCNT2))
-temp1$PTUSED2   <- as.numeric(as.character(temp1$PTUSED2))
-temp1$NWBMODE2  <- as.numeric(as.character(temp1$NWBMODE2))
-temp1$HOMEOWN   <- as.numeric(as.character(temp1$HOMEOWN))
-temp1$R_SEX     <- as.numeric(as.character(temp1$R_SEX))
-temp1$R_HISP    <- as.numeric(as.character(temp1$R_HISP))
+names(temp)[map_chr(temp, class) == "numeric"]
 
-match.data.all.wt <- svydesign(ids = ~ 1, data = temp1, weights = ~ weights2)
+temp$HHVEHCNT2 <- as.numeric(as.character(temp$HHVEHCNT2))
+temp$PTUSED2   <- as.numeric(as.character(temp$PTUSED2))
+temp$NWBMODE2  <- as.numeric(as.character(temp$NWBMODE2))
+temp$HOMEOWN2  <- as.numeric(as.character(temp$HOMEOWN2))
+temp$R_SEX     <- as.numeric(as.character(temp$R_SEX))
+temp$R_HISP    <- as.numeric(as.character(temp$R_HISP))
+
+match.data.all.wt <- svydesign(ids = ~ 1, data = temp, weights = ~ weights2)
 
 ## Weighted table with tableone
 summary.test <- svyCreateTableOne(vars = xvars, strata ="RS", data = match.data.all.wt)
@@ -1745,8 +1777,11 @@ matching.cov.list <- c("one adult, no children", "2+ adults, no children", "one 
           "Telecommute 0", "Telecommute 1-3", "Telecommute 4-7", "Telecommute 8-11", "Telecommute 12+", 
           "Medical condition", "# online delivery", "Google Trend")
 
+if (!require("reshape2")) 
+  install.packages("reshape2", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 ## install.packages("reshape2")
 library(reshape2)
+
 dataPlotMelt <- melt(data          = dataPlot, 
                      id.vars       = "variable", 
                      variable.name = "method", 
@@ -1760,7 +1795,8 @@ dataPlotMelt$variable <- factor(as.character(dataPlotMelt$variable),
 dataPlotMelt$method   <- factor(dataPlotMelt$method, 
                                 levels = c("Weighted", "Unadjusted"))
 
-jpeg("M:/Uber_NHTS/31_Conference/SMDplot03.jpg", 
+
+jpeg(file.path(filepath, "17_Visualize/02_ICMC2019/balance01.jpg"), 
      width = 600, height = 600, units = "px", pointsize = 72,
      quality = 600)
 ggplot(data = dataPlotMelt, mapping = aes(x=variable, y=SMD, group=method, linetype=method)) + 
@@ -1834,7 +1870,7 @@ colnames(data13)
 ## Task 4-4. Prepare for mplus estimation ----
 
 varname <- as.data.frame(colnames(data13))
-nrow(varname)-54
+nrow(varname)-57
 
 mplusname <- c("id1", "id2", "y1",  "y2",  "y3",  "y4",  "y5",  "y6", "y7", 
                "x1",  "x2",  "x3",  "x4",  "x5",  "x6",  "x7",  "x8",  "x9",  "x10", 
@@ -1850,6 +1886,7 @@ mplusname <- c("id1", "id2", "y1",  "y2",  "y3",  "y4",  "y5",  "y6", "y7",
                "UA31", "UA32", "UA33", "UA34", "UA35", "UA36", "UA37", "UA38", "UA39", "UA40", 
                "UA41", "UA42", "UA43", "UA44", "UA45", "UA46", "UA47", "UA48", "UA49", "UA50",
                "ps", "WT1", "WT2", "WT3") 
+
 length(mplusname)-54
 
 a <- cbind(varname, mplusname) 
@@ -1880,29 +1917,7 @@ b[3:9, ]
 b[10:72, ]
 b
 
-
-## rownames(pooled.match) <- NULL 
-## nrow(pooled.match)
-
-## data13$R_AGESQ <- data13$R_AGE*data13$R_AGE
-## data13 <- data13[, c(1:44, 127, 45:126)]
-
-## deliver.boxplot <- data13[, c("RS", "RIDESHARE", "DELIVER")] 
-## deliver.boxplot$DELIVER <- iselse(data13$DELIVER==0,0, data13$DELIVER)  
-## deliver.boxplot$DELIVER <- iselse(data13$DELIVER> 0  & data13$DELIVER<5, 1, data13$DELIVER) 
-## deliver.boxplot$DELIVER <- iselse(data13$DELIVER>=5  & data13$DELIVER<10,2, data13$DELIVER) 
-## deliver.boxplot$DELIVER <- iselse(data13$DELIVER>=10 & data13$DELIVER<20,3, data13$DELIVER)  
-## deliver.boxplot$DELIVER <- iselse(data13$DELIVER>=20 & data13$DELIVER<30,4, data13$DELIVER) 
-## deliver.boxplot$DELIVER <- iselse(data13$DELIVER>=30,5, data13$DELIVER) 
-
-## deliver.boxplot$DELIVER <- log(deliver.boxplot$DELIVER+1) ## b/c extreme outliers 
-## boxplot(DELIVER ~ RIDESHARE, data=deliver.boxplot)
-## boxplot(DELIVER ~ RIDESHARE, data=deliver.boxplot[deliver.boxplot$DELIVER<99, ])
-
-data13$DELIVER <- log(data13$DELIVER+1) ## b/c extreme outliers 
-colnames(data13)
-sum <- sapply(data13[, sapply(data13, is.factor)==FALSE], sum)
-sum[sum==0]
+table(data13$deliver) # categorical variable - should be divided for each level 
 
 
 write.csv(data13, "M:/Uber_NHTS/15_Model/pooled_match_03.csv")
@@ -1916,9 +1931,6 @@ nhtsualist$uaorder <- rownames(nhtsualist)
 ualist <- ddply(data13, .(UACE10), summarize, Count=sum(is.na(UACE10)==FALSE))
 merge(ualist, nhtsualist, by=c("UACE10"))
 
-a <- sapply(data13[, c(73:122)], sum)
-a[a>0]
-sum(a[a>0])
 ## boxplot(as.numeric(data13$NWBMODE2)~UA44, data=data13)
 ## summary(as.numeric(as.character(data13[data13$UA44==1 & data13$RS==1, ]$NWBMODE2)))
 ## summary(as.numeric(as.character(data13[data13$UA44==1 & data13$RS==0, ]$NWBMODE2)))
