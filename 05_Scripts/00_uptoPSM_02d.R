@@ -1086,7 +1086,7 @@ ua2016 <- urban_areas(cb=FALSE, year=2016)
 ualist <- ua2016@data
 ualist <- ualist[, c("UACE10", "NAME10")]
 ualist$UACE10 <- as.integer(ualist$UACE10)
-rm("ua2016")
+# rm("ua2016")
 
 # data05 <- merge(data04, ualist, by="UACE10")
 nhtsualist <- as.data.frame(table(data05$UACE10))
@@ -1526,6 +1526,20 @@ table(data12$RS)
 summary(data12$PTUSED2)
 summary(data12$NWBMODE2)
 
+ua2016 <- urban_areas(cb=FALSE, year=2016)
+ualist <- ua2016@data
+ualist <- ualist[, c("UACE10", "NAME10")]
+ualist$UACE10 <- as.integer(ualist$UACE10)
+# rm("ua2016")
+
+# data05 <- merge(data04, ualist, by="UACE10")
+nhtsualist <- as.data.frame(table(data10$UACE10))
+colnames(nhtsualist) <- c("UACE10", "cases")
+nhtsualist$UACE10 <- as.integer(as.character(nhtsualist$UACE10))
+nhtsualist <- left_join(nhtsualist, ualist, by="UACE10")
+nhtsualist <- nhtsualist %>% arrange(-cases) 
+nrow(nhtsualist)
+
 nhtsualist2 <- 
   nhtsualist %>%
   mutate(
@@ -1869,22 +1883,18 @@ colnames(data13)
 
 ## Task 4-4. Prepare for mplus estimation ----
 
-varname <- as.data.frame(colnames(data13))
+colnames(match.UA50.across)
+varname <- as.data.frame(colnames(match.UA50.across))
 nrow(varname)-57
 
-mplusname <- c("id1", "id2", "y1",  "y2",  "y3",  "y4",  "y5",  "y6", "y7", 
+mplusname <- c("id1", "id2", "y1",  "y2",  "y3",  "y4",  "y5",  "y6",  
                "x1",  "x2",  "x3",  "x4",  "x5",  "x6",  "x7",  "x8",  "x9",  "x10", 
                "x11", "x12", "x13", "x14", "x15", "x16", "x17", "x18", "x19", "x20", 
-               "x21", "x22", "x23", "x24", "x25", "x26", "y8",  "x27", "x28", "x29", "x30", 
+               "x21", "x22", "x23", "x24", "x25", "x26", "x27", "x28", "x29", "x30", 
                "x31", "x32", "x33", "x34", "x35", "x36", "x37", "x38", "x39", "x40",
                "x41", "x42", "x43", "x44", "x45", "x46", "x47", "x48", "x49", "x50", 
                "x51", "x52", "x53", "x54", "x55", "x56", "x57", "x58", "x59", "x60", 
-               "x61", "x62", 
-               "UA01", "UA02", "UA03", "UA04", "UA05", "UA06", "UA07", "UA08", "UA09", "UA10", 
-               "UA11", "UA12", "UA13", "UA14", "UA15", "UA16", "UA17", "UA18", "UA19", "UA20", 
-               "UA21", "UA22", "UA23", "UA24", "UA25", "UA26", "UA27", "UA28", "UA29", "UA30", 
-               "UA31", "UA32", "UA33", "UA34", "UA35", "UA36", "UA37", "UA38", "UA39", "UA40", 
-               "UA41", "UA42", "UA43", "UA44", "UA45", "UA46", "UA47", "UA48", "UA49", "UA50",
+               "x61", "x62", "x63", "x64", "x65", "x66", "x67", "x68", "x69", 
                "ps", "WT1", "WT2", "WT3") 
 
 length(mplusname)-54
