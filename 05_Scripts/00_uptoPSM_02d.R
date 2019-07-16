@@ -1673,7 +1673,7 @@ for (i in ua_subset) {
   match.data.UA <- match.data(match.UA)
   ## https://r.iq.harvard.edu/docs/matchit/2.4-20/How_Exactly_are.html
   b <- min(match.data.UA[match.data.UA$RS==0, ]$weights)
-  match.data.UA$weights2 <- as.integer(ifelse(match.data.UA$RS==0, match.data.UA$weights/b, match.data.UA$weights))
+  match.data.UA$weights2 <- round(ifelse(match.data.UA$RS==0, match.data.UA$weights/b, match.data.UA$weights), digits = 0)
   match.data.all <- rbind(match.data.all, match.data.UA)  ## match.data object 
 }
 ## warnings() 
@@ -1686,7 +1686,10 @@ match.data.within <-  # 5,163 cases from 11 UAs, pretty good
   )
 # for now, let's use weights2
 
-match.data.within %>% group_by(RS, UACE10) %>% summarize(wtsum = sum(weights2)) %>% spread(key = RS, value = wtsum)
+match.data.within %>% 
+  group_by(RS, UACE10) %>% 
+  summarize(wtsum = sum(weights2)) %>% 
+  spread(key = RS, value = wtsum)
 
 
 # Task 4-2-2. across-UA matching ----  
@@ -1707,7 +1710,7 @@ match.UA50.across <- # 6,822 cases from 50 UAs
   match.data(match.UA50) %>% 
   as_tibble() %>% 
   mutate(
-    weights2 = as.integer(ifelse(RS==0, weights/b, weights)), 
+    weights2 = round(ifelse(RS==0, weights/b, weights), digits = 0), 
     weights3 = ifelse(RS==0, distance/(1-distance), 1) 
   )  
 
