@@ -1436,25 +1436,27 @@ sum(a$Freq)
 a
 
 ## (1- nrow(data10[is.na(data10$RS)==FALSE, ])/nrow(data10))*100 
-## table(data10$RS)
 
-data11 <- data10[(data10$RS==0 | data10$RS==1) & (is.na(data10$RS)==FALSE), ] # choose *two* user types 
+table(data10$RS)
+# summary(data10$RS) # 32 NA cases 
+data11 <- data10 %>% filter(data10$RS==0 | data10$RS==3)# choose *two* user types 
+# table(data11$RS)
+
+# (1- nrow(data11)/nrow(data10[is.na(data10$RS)==FALSE, ]))*100 # what % being dropped? 
+data11$RS <- ifelse(data11$RS != 0, 1L, data11$RS)
+# data11$RS <- as.integer(data11$RS)
 table(data11$RS)
 
-(1- nrow(data11)/nrow(data10[is.na(data10$RS)==FALSE, ]))*100 # dropping 8.3% (more frequent RS users)
-data11$RS <- ifelse(data11$RS>0, 1, data11$RS)
-data11$RS <- as.integer(data11$RS)
-
-data11$LIF_CYC01 <- ifelse(data11$LIF_CYC=="01", 1, 0)
-data11$LIF_CYC02 <- ifelse(data11$LIF_CYC=="02", 1, 0)
-data11$LIF_CYC03 <- ifelse(data11$LIF_CYC=="03", 1, 0)
-data11$LIF_CYC04 <- ifelse(data11$LIF_CYC=="04", 1, 0)
-data11$LIF_CYC05 <- ifelse(data11$LIF_CYC=="05", 1, 0)
-data11$LIF_CYC06 <- ifelse(data11$LIF_CYC=="06", 1, 0)
-data11$LIF_CYC07 <- ifelse(data11$LIF_CYC=="07", 1, 0)
-data11$LIF_CYC08 <- ifelse(data11$LIF_CYC=="08", 1, 0)
-data11$LIF_CYC09 <- ifelse(data11$LIF_CYC=="09", 1, 0)
-data11$LIF_CYC10 <- ifelse(data11$LIF_CYC=="10", 1, 0)
+data11$LIF_CYC01 <- ifelse(data11$LIF_CYC=="01", 1L, 0L)
+data11$LIF_CYC02 <- ifelse(data11$LIF_CYC=="02", 1L, 0L)
+data11$LIF_CYC03 <- ifelse(data11$LIF_CYC=="03", 1L, 0L)
+data11$LIF_CYC04 <- ifelse(data11$LIF_CYC=="04", 1L, 0L)
+data11$LIF_CYC05 <- ifelse(data11$LIF_CYC=="05", 1L, 0L)
+data11$LIF_CYC06 <- ifelse(data11$LIF_CYC=="06", 1L, 0L)
+data11$LIF_CYC07 <- ifelse(data11$LIF_CYC=="07", 1L, 0L)
+data11$LIF_CYC08 <- ifelse(data11$LIF_CYC=="08", 1L, 0L)
+data11$LIF_CYC09 <- ifelse(data11$LIF_CYC=="09", 1L, 0L)
+data11$LIF_CYC10 <- ifelse(data11$LIF_CYC=="10", 1L, 0L)
 
 data11$HHFAMINC01 <- ifelse(data11$HHFAMINC=="01", 1, 0)
 data11$HHFAMINC02 <- ifelse(data11$HHFAMINC=="02", 1, 0)
@@ -1571,7 +1573,7 @@ nhts_cases_byua <- data13 %>% group_by(UACE10) %>% summarize(cases = n())
 data13 <- data13 %>%
   left_join(nhts_cases_byua, by = "UACE10")
 
-write_rds(data13, paste0(filepath, "/11_Scratch/data13.rds"))
+# write_rds(data13, paste0(filepath, "/11_Scratch/data13.rds"))
 # data13 <- read_rds(paste0(filepath, "/11_Scratch/data13.rds")) 
 
 a <- ddply(data13, .(UACE10), summarize, 
@@ -1689,7 +1691,8 @@ match.data.within <-  # 5,163 cases from 11 UAs, pretty good
 match.data.within %>% 
   group_by(RS, UACE10) %>% 
   summarize(wtsum = sum(weights2)) %>% 
-  spread(key = RS, value = wtsum)
+  spread(key = RS, value = wtsum) %>%
+  left_join(nhtsualist2, by = "UACE10")
 
 
 # Task 4-2-2. across-UA matching ----  
@@ -1714,6 +1717,7 @@ match.UA50.across <- # 6,822 cases from 50 UAs
     weights3 = ifelse(RS==0, distance/(1-distance), 1) 
   )  
 
+match.UA50.across %>% group_by(UACE10, RS) %>% summarize(n = n()) %>% View()
 
 
 
