@@ -427,7 +427,7 @@ b <- match.data(match.UA50) %>%
   .$weights %>% 
   min() 
 
-match.UA50.across <- # 6,822 cases from 50 UAs
+match.UA50.across <- # 6,704 cases from 50 UAs
   match.data(match.UA50) %>% 
   as_tibble() %>% 
   mutate(
