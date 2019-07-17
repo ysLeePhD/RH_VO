@@ -9,10 +9,10 @@ if (!require("sf")) install.packages("sf", repos = "http://cran.us.r-project.org
 if (!require("tidycensus")) install.packages("tidycensus", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 if (!require("tigris")) install.packages("tigris", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 if (!require("devtools")) install.packages("devtools")
+library(devtools)
 if (!require("lehdr")) devtools::install_github("jamgreen/lehdr")
 
 if (!require("mapview")) install.packages("mapview", repos = "http://cran.us.r-project.org", dependencies = TRUE)
-# if (!require("mapview")) install.packages("mapview")
 if (!require("tmap")) install.packages("tmap", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 
 if (!require("psych")) install.packages("psych", repos = "http://cran.us.r-project.org", dependencies = TRUE)
@@ -29,7 +29,6 @@ library(tidyverse)
 library(sf)
 library(tidycensus)
 library(tigris)
-library(devtools)
 library(lehdr)
 library(mapview)
 library(tmap)
@@ -39,7 +38,6 @@ library(tableone)
 library(MatchIt)
 library(optmatch)
 library(survival)
-
 
 options(stringsAsFactors = FALSE)
 # check the integer max value 
@@ -62,24 +60,24 @@ tigris_cache_dir(paste0(filepath, "/05_Census/tigris"))
 
 # If tigris_cache_dir(paste0(filepath, "/05_Census/tigris")) doesn't work, 
 # Run below scripts line by line from the function.
-    # path <- paste0(filepath, "/05_Census/tigris")
-    # home <- Sys.getenv("HOME")
-    # renv <- file.path(home, ".Renviron")
-    # if (!file.exists(renv)) {
-    #   file.create(renv)
-    # }
-    # check <- readLines(renv)
-    # if (isTRUE(any(grepl("TIGRIS_CACHE_DIR", check)))) {
-    #   oldenv <- read.table(renv, stringsAsFactors = FALSE)
-    #   newenv <- oldenv[-grep("TIGRIS_CACHE_DIR", oldenv), 
-    #                    ]
-    #   write.table(newenv, renv, quote = FALSE, sep = "\n", 
-    #               col.names = FALSE, row.names = FALSE)
-    # }
-    # var <- paste0("TIGRIS_CACHE_DIR=", "'", path, "'")
-    # write(var, renv, sep = "\n", append = TRUE)
-    # message(sprintf("Your new tigris cache directory is %s. \nTo use now, restart R or run `readRenviron('~/.Renviron')`", 
-    #                 path))
+# path <- paste0(filepath, "/05_Census/tigris")
+# home <- Sys.getenv("HOME")
+# renv <- file.path(home, ".Renviron")
+# if (!file.exists(renv)) {
+#   file.create(renv)
+# }
+# check <- readLines(renv)
+# if (isTRUE(any(grepl("TIGRIS_CACHE_DIR", check)))) {
+#   oldenv <- read.table(renv, stringsAsFactors = FALSE)
+#   newenv <- oldenv[-grep("TIGRIS_CACHE_DIR", oldenv), 
+#                    ]
+#   write.table(newenv, renv, quote = FALSE, sep = "\n", 
+#               col.names = FALSE, row.names = FALSE)
+# }
+# var <- paste0("TIGRIS_CACHE_DIR=", "'", path, "'")
+# write(var, renv, sep = "\n", append = TRUE)
+# message(sprintf("Your new tigris cache directory is %s. \nTo use now, restart R or run `readRenviron('~/.Renviron')`", 
+#                 path))
 
 readRenviron("~/.Renviron")
 Sys.getenv('TIGRIS_CACHE_DIR')
@@ -227,6 +225,8 @@ trd <- bgd %>%
   
 write_rds(trd, paste0(filepath, "/11_Scratch/trd.rds"))
 # trd <- read_rds(paste0(filepath, "/11_Scratch/trd.rds"))
+
+
 
 
 ## Task 1-2. Read in and select variables of NHTS restricted-use data files ----
