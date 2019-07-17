@@ -223,10 +223,56 @@ data02 <- hhpbg[, c("HOUSEID", "PERSONID", "TDAYDATE", "LIF_CYC", "NUMCHILD", "Y
                     "HHFAMINC", "HOMEOWN", "HHSTFIPS", "HHCNTYFP", "HHCT", "UACE10", 
                     "WKSTFIPS", "WKCNFIPS", "WORKCT")]
 
-data02$LIF_CYC <- as.factor(data02$LIF_CYC)
-data02$HHFAMINC <- ifelse(data02$HHFAMINC<0, NA, data02$HHFAMINC)
-data02$HHFAMINC <- as.factor(data02$HHFAMINC)
-summary(data02$HHFAMINC)
+class(data02$LIF_CYC)
+table(data02$LIF_CYC)
+data02$LIF_CYC %>% is.na() %>% sum() # no missing 
+temp <- data02$LIF_CYC %>% table() /37118 *100 
+temp %>% round(digits = 1)
+# unweighted                                    recode
+# 01 = one adult, no children           16.2 %  1
+# 02 = 2+ adults, no children           38.4 %  2 
+# 03 = one adult, youngest child 0-5     0.5 %  3 
+# 04 = 2+ adults, youngest child 0-5    11.6 %  3
+# 05 = one adult, youngest child 6-15    1.6 %  4
+# 06 = 2+ adults, youngest child 6-15   14.0 %  4 
+# 07 = one adult, youngest child 16-21   1.2 %  5
+# 08 = 2+ adults, youngest child 16-21   7.6 %  5
+# 09 = one adult, retired, no children   0.4 %  6 
+# 10 = 2+ adults, retired, no children   8.6 %  6
+data02$LIF_CYC2 <- recode(data02$LIF_CYC, 
+                          "01"=1L, "02"=2L, "03"=3L, "04"=3L, 
+                          "05"=4L, "06"=4L, "07"=5L, "08"=5L, 
+                          "09"=6L, "10"=6L) %>% as.factor()
+
+table(data02$HHFAMINC)
+data02$HHFAMINC %>% is.na() %>% sum() # no missing 
+temp <- table(data02$HHFAMINC) / 37118 * 100
+temp %>% round(digits = 1)
+# unweighted                        recode 
+# -9 Not ascertained
+# -8 I don't know
+# -7 I prefer not to answer 
+# 01=Less than $10,000       1.6 %  1 
+# 02=$10,000 to $14,999      1.6 %  1
+# 03=$15,000 to $24,999      3.9 %  1
+# 04=$25,000 to $34,999      5.2 %  1
+# 05=$35,000 to $49,999      8.3 %  2
+# 06=$50,000 to $74,999     15.1 %  3
+# 07=$75,000 to $99,999     15.1 %  4
+# 08=$100,000 to $124,999   14.2 %  5 
+# 09=$125,000 to $149,999    9.5 %  5
+# 10=$150,000 to $199,999   10.5 %  6
+# 11=$200,000 or more       12.8 %  6
+data02$HHFAMINC2 <- 
+  recode(
+    data02$HHFAMINC, 
+    "-7"=NA_integer_, "-8"=NA_integer_, "-9"=NA_integer_, 
+    "01"=1L, "02"=1L, "03"=1L, "04"=1L, 
+    "05"=2L, "06"=3L, "07"=4L, "08"=5L, 
+    "09"=5L, "10"=6L, "11"=6L) %>% 
+  as.factor()
+table(data02$HHFAMINC2)
+summary(data02$HHFAMINC2)
 
 table(data02$HOMEOWN)
 data02$HOMEOWN2 <- ifelse(data02$HOMEOWN=="01", 1, 0)
@@ -234,25 +280,27 @@ data02$HOMEOWN2 <- ifelse(data02$HOMEOWN=="-7", NA, data02$HOMEOWN2)
 data02$HOMEOWN2 <- as.factor(data02$HOMEOWN2) # 1-own, 0-rent or other arrangements 
 summary(data02$HOMEOWN2)
 
-data02$GEOID <- as.numeric(data02$HHSTFIPS)*1000000000+as.numeric(data02$HHCNTYFP)*1000000+as.numeric(data02$HHCT)*1
-data02$GEOID <- ifelse(data02$GEOID<10000000000, paste("0", data02$GEOID, sep=""), as.character(data02$GEOID))
+data02$GEOID <- paste0(data02$HHSTFIPS, data02$HHCNTYFP, data02$HHCT)
 
 data03 <- data02 %>%
   left_join(tract_be7, by=c("GEOID", "UACE10")) %>%
   as_tibble() 
 
-colnames(data03)[20:24] <- 
+b <- ncol(data03)
+a <- b-4 
+colnames(data03)[a:b] <- 
   c("home.den.st", "home.den.pp", "home.jobrich", "home.oldnbhd", "home.sfh")
 
 data04 <- data03 %>% 
   left_join(iv_all01[, c("GEOID", "UACE10", "z.pctcoll", "z.pctyoung", "z.pctxveh")], # use of z-scores
             by=c("GEOID", "UACE10"))
 
-colnames(data04)[25:27] <- 
+b <- ncol(data04)
+a <- b-2 
+colnames(data04)[a:b] <- 
   c("home.pctcoll", "home.pctyoung", "home.pctxveh")
 
 data04$GEOID <- paste0(data04$WKSTFIPS, data04$WKCNFIPS, data04$WORKCT)
-
 
 iv_all01_2 <- 
   iv_all01 %>% 
@@ -279,16 +327,15 @@ tract_be7_2 <-
 data05 <- left_join(data04, iv_all01_2, by="GEOID")
 data06 <- left_join(data05, tract_be7_2, by="GEOID")
 data06$GEOID <- NULL
+b <- ncol(data06)
+a <- b-1 
+colnames(data06)[a:b] <- c("work.den.tech", "work.den.serv")
 
-colnames(data06)[27:28] <- c("work.den.tech", "work.den.serv")
-
+data06$LIF_CYC <- NULL
+data06$HHFAMINC <- NULL
 map(data06, summary)
 
-# rm("data02", "data03", "beall7", "ivall4")
-# How to make ML1, ML1 in data04 change to homeden, workden?  
-#https://stackoverflow.com/questions/27347548/r-assign-variable-labels-of-data-frame-columns
-#install.packages("Hmisc")
-#library(Hmisc)
+
 
 ## Task 3-4. Person variables, "non-workers removed" ----
 
