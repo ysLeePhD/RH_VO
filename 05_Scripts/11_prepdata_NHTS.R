@@ -307,8 +307,8 @@ iv_all01_2 <-
   select(GEOID, UACE10, z.techden, z.servden) %>% 
   group_by(GEOID) %>%
   summarize(
-    techden = mean(z.techden), # use of z-scores
-    servden = mean(z.servden)  # use of z-scores
+    work.den.tech = mean(z.techden), # use of z-scores
+    work.den.serv = mean(z.servden)  # use of z-scores
   ) %>%
   ungroup()
 
@@ -327,13 +327,12 @@ tract_be7_2 <-
 data05 <- left_join(data04, iv_all01_2, by="GEOID")
 data06 <- left_join(data05, tract_be7_2, by="GEOID")
 data06$GEOID <- NULL
-b <- ncol(data06)
-a <- b-1 
-colnames(data06)[a:b] <- c("work.den.tech", "work.den.serv")
-
 data06$LIF_CYC <- NULL
 data06$HHFAMINC <- NULL
-map(data06, summary)
+data06$HOMEOWN <- NULL
+
+names(data06)
+map(data06, summary) # still includes those who work outside of UAs. 
 
 
 
@@ -348,18 +347,16 @@ data08 <-
             "WKRMHM", "WKFMHMXX", "MEDCOND", "PC", "SPHONE", "TAB", "WEBUSE17", "DELIVER")] %>%
   filter(WORKER=="01") 
 
-#data08 <- data08[data08$WORKER== 1 & data08$PERSONID==1, ] # restrict to the recruitment survey respondents 
-
 table(data08$R_SEX) 
 # -8=I don't know
 # -7=I prefer not to answer
 # 01=Male
 # 02=Female
 # After processing: 0-male, 1-female
-
 # recode - https://dplyr.tidyverse.org/reference/recode.html
 data08$R_SEX <- 
-  recode(data08$R_SEX, "01" = 1L, "02" = 0L, .default = NA_integer_)
+  recode(data08$R_SEX, "01" = 1L, "02" = 0L, .default = NA_integer_) %>%
+  as.factor()
 
 data08$R_AGE <- ifelse(data08$R_AGE<0, NA, data08$R_AGE)
 
@@ -367,22 +364,26 @@ data08$R_RACE <- ifelse(data08$R_RACE=="-7", NA, data08$R_RACE)
 data08$R_RACE <- ifelse(data08$R_RACE=="-8", NA, data08$R_RACE)
 data08$R_RACE <- as.factor(data08$R_RACE)
 
-data08$R_HISP <- ifelse(data08$R_HISP=="-7", NA, data08$R_HISP)
-data08$R_HISP <- ifelse(data08$R_HISP=="-8", NA, data08$R_HISP)
-data08$R_HISP <- as.factor(data08$R_HISP)
+data08$R_HISP <- #1=Yes, 2=No
+  recode(data08$R_HISP, "01" = 1L, "02" = 0L, .default = NA_integer_) %>% 
+  as.factor()
 
 data08$DRIVER <- 
   recode(data08$DRIVER, "01" = 1L, "02" = 0L, .default = NA_integer_)
 
 table(data08$EDUC)
-data08$EDUC <- ifelse(data08$EDUC=="-7", NA, data08$EDUC)
-data08$EDUC <- ifelse(data08$EDUC=="-8", NA, data08$EDUC)
-data08$EDUC <- as.factor(data08$EDUC)
+data08$EDUC <- 
+  recode(data08$EDUC,
+         "01" = 1L, "02" = 1L, "03" = 2L, "04" = 3L, "05" = 4L, 
+         .default = NA_integer_) %>%
+  as.factor()
 table(data08$EDUC)
 
 quantile(data08[data08$DISTTOWK17>=0,]$DISTTOWK17, c(.95, .975, .99))
 100 - nrow(data08[data08$DISTTOWK17>=0,])/nrow(data08)*100
 # network commute distance missing 0.09% of the worker subsample 
+data08$lncommute = ifelse(data08$DISTTOWK17>=0, log(data08$DISTTOWK17+1), NA_real_)
+hist(data08$lncommute) # NA 34 cases 
 
 table(data08$OCCAT)
 #-9=Not ascertained
@@ -394,15 +395,44 @@ table(data08$OCCAT)
 #03=Manufacturing, construction, maintenance, or farming
 #04=Professional, managerial, or technical
 #97=Something else
-data08$OCCAT <- ifelse(data08$OCCAT<0, NA,data08$OCCAT)
-data08$OCCAT <- as.factor(data08$OCCAT)
+data08$OCCAT2 <- 
+  recode(
+    data08$OCCAT, 
+    "01"=1L, "02"=2L, "03"=3L, "04"=4L, "97"=5L, 
+    .default = NA_integer_, .missing = NA_integer_
+  ) %>% 
+  as.factor()
+table(data08$OCCAT2)
+summary(data08$OCCAT2)
 
-table(data08$WKFTPT)
-table(data08$FLEXTIME)
-table(data08$GT1JBLWK)
+table(data08$WKFTPT)   # Full-Time or Part-Time Worker
+data08$WKFTPT2 <- 
+  recode(
+    data08$WKFTPT, 
+    "01"=1L, "02"=0L, .default = NA_integer_, .missing = NA_integer_
+  ) %>% 
+  as.factor()
+table(data08$WKFTPT2) # 1=full time, 0=part time 
 
-table(data08$WKRMHM)  
-# Option of Working from Home
+table(data08$FLEXTIME) # flex time 
+data08$FLEXTIME2 <- 
+  recode(
+    data08$FLEXTIME, 
+    "01"=1L, "02"=0L, .default = NA_integer_, .missing = NA_integer_
+  ) %>% 
+  as.factor()
+table(data08$FLEXTIME2) # 1=yes, 0=no 
+
+table(data08$GT1JBLWK) # More than One Job
+data08$GT1JBLWK2 <- 
+  recode(
+    data08$GT1JBLWK, 
+    "01"=1L, "02"=0L, .default = NA_integer_, .missing = NA_integer_
+  ) %>% 
+  as.factor()
+table(data08$GT1JBLWK2) # 1=yes, 0=no 
+
+table(data08$WKRMHM)   # Option of Working from Home
 #-9=Not ascertained
 #-8=I don't know
 #-7=I prefer not to answer
@@ -428,15 +458,15 @@ data08$Telecommute <- ifelse(data08$WKRMHM=="01" & data08$WKFMHMXX>= 4, 2, data0
 data08$Telecommute <- ifelse(data08$WKRMHM=="01" & data08$WKFMHMXX>= 8, 3, data08$Telecommute)
 data08$Telecommute <- ifelse(data08$WKRMHM=="01" & data08$WKFMHMXX>=12, 4, data08$Telecommute)
 data08$Telecommute <- as.factor(data08$Telecommute)
-
-# Frequency of ICT device use - only one (initial recruit) in each household was asked 
-map(data08[, c(18:22)], table)
+table(data08$Telecommute)
+summary(data08$Telecommute)
 
 table(data08$MEDCOND) 
 # Medical Condition (person file)
 # -8=I don't know
 # -7=I prefer not to answer
-data08$medcon <- recode(data08$MEDCOND, "01" = 1L, "02" = 0L, .default = NA_integer_)  
+data08$medcon <- recode(data08$MEDCOND, "01" = 1L, "02" = 0L, .default = NA_integer_, .missing = NA_integer_)  
+table(data08$medcon)
 
 table(data08$DELIVER)
 # Count of Times Purchased Online for Delivery in Last 30 Days (person file)
@@ -451,30 +481,56 @@ data08$deliver <- ifelse(data08$DELIVER >=  1, 1, data08$deliver) # less than on
 data08$deliver <- ifelse(data08$DELIVER >=  4, 2, data08$deliver) # once a week  
 data08$deliver <- ifelse(data08$DELIVER >=  8, 3, data08$deliver) # twice a week 
 data08$deliver <- ifelse(data08$DELIVER >= 12, 4, data08$deliver) # 3 or more times a week 
-
+table(data08$deliver)
 # 01 = Daily
 # 02 = A few times a week
 # 03 = A few times a month
 # 04 = A few times a year
 # 05 = Never
 
-data09 <- data08[, c("HOUSEID", "PERSONID", "R_SEX", "R_AGE", "R_RACE", "R_HISP", 
-                     "DRIVER", "EDUC", "OCCAT", "Telecommute","medcon",  "deliver")]
-#rm("data08")
+# Frequency of ICT device use - only one (initial recruit) in each household was asked 
+names(data08)
+map(data08[, c("PC", "SPHONE", "TAB", "WEBUSE17")], table)
 
-map(data09[, 2:12], ~is.na(.) %>% sum()) # missing cases for each variable 
+# PC: Frequency of Desktop or Laptop Computer Use to Access the Internet
+# SPHONE: Frequency of Smartphone Use to Access the Internet
+# TAB: Frequency of Tablet Use to Access the Internet
+# WEBUSE17: Frequency of internet use
+# -9=Not ascertained
+# -8=I don't know
+# -7=I prefer not to answer
+# 01=Daily
+# 02=A few times a week
+# 03=A few times a month
+# 04=A few times a year
+# 05=Never
+
+myrecode <- function(x){
+  recode(
+    x, "01"=4L, "02"=3L, "03"=2L, "04"=1L, "05"=0L, 
+    .default=NA_integer_, .missing=NA_integer_) %>% 
+  as.factor()
+}
+
+data08$PC2 <- myrecode(data08$PC) 
+data08$SPHONE2 <- myrecode(data08$SPHONE) 
+data08$TAB2 <- myrecode(data08$TAB) 
+data08$WEB2 <- myrecode(data08$WEBUSE17) 
+
+data09 <- data08[, c("HOUSEID", "PERSONID", "R_SEX", "R_AGE", "R_RACE", "R_HISP", 
+                     "DRIVER", "EDUC", "WKFTPT2", "FLEXTIME2", "GT1JBLWK2", "OCCAT2", "lncommute", 
+                     "Telecommute", "deliver", "PC2", "SPHONE2", "TAB2", "WEB2", "medcon")] 
+names(data09)
+
+map(data09[, 3:20], ~is.na(.) %>% sum()) # missing cases for each variable 
 unique(data09$HOUSEID) %>% length() # 25837 unique households 
 
 
 ## Task 3-5. Merge three dataframes ----
 
-colnames(data01)
-colnames(data06)
-colnames(data09)
-
-nrow(data01)
-nrow(data06)
-nrow(data09)
+names(data01)
+names(data06)
+names(data09)
 
 temp01 <- left_join(data01, data06, by=c("HOUSEID", "PERSONID"))
 data10 <- left_join(temp01, data09, by=c("HOUSEID", "PERSONID"))
