@@ -95,6 +95,9 @@ Sys.getenv("CENSUS_API_KEY")
 
 ## Task 4-1. PSM data prep ----
 
+# if I don't start from scratch 
+data10 <- read_rds(file.path(filepath, "11_Scratch/data10.rds"))
+
 #4.1. Compute a new categorical variable, RS 
 # 0 - no use in the last 30 days 
 # 1 - less than once a week in the last 30 days 
@@ -102,64 +105,54 @@ Sys.getenv("CENSUS_API_KEY")
 # 3 - at least twice a week in the last 30 days 
 
 table(data10$RIDESHARE)
-#hist(data10[data10$RIDESHARE>0, ]$RIDESHARE)
+# hist(data10[data10$RIDESHARE>0, ]$RIDESHARE)
 quantile(data10[data10$RIDESHARE>0, ]$RIDESHARE, c(.9, .95, .975, .99, .999))
 
+data10$RIDESHARE %>% class()
+data10$RIDESHARE <- data10$RIDESHARE %>% round(digits = 0) %>% as.integer()
+data10$RIDESHARE %>% class()
+
 data10$RS <- ifelse(
-  data10$RIDESHARE<0, NA, ifelse(
-    data10$RIDESHARE==0, 0, ifelse( # non-user
-      data10$RIDESHARE<4, 1, ifelse( # less than once a week 
-        data10$RIDESHARE<8, 2, 3 # less than twice a week vs. at least twice a week 
+  data10$RIDESHARE<0, NA_integer_, ifelse(
+    data10$RIDESHARE==0, 0L, ifelse( # non-user
+      data10$RIDESHARE<4, 1L, ifelse( # less than once a week 
+        data10$RIDESHARE<8, 2L, 3L # less than twice a week vs. at least twice a week 
       )
     )
   )
 )
-data10$RS <- as.integer(as.character(data10$RS))
-class(data10$RS)
 
-summary(data10$RIDESHARE)
-table(data10[data10$RIDESHARE>=0, ]$RIDESHARE)
-
-a <- as.data.frame(table(data10$RS)) 
-b <- nrow(data10[data10$RS >=0, ])
-a$pct <- a[,2]/b*100
-sum(a$Freq)
-a
-
-## (1- nrow(data10[is.na(data10$RS)==FALSE, ])/nrow(data10))*100 
-
-table(data10$RS)
+# table(data10$RS)
 # summary(data10$RS) # 32 NA cases 
-data11 <- data10 %>% filter(data10$RS==0 | data10$RS==3)# choose *two* user types 
-# table(data11$RS)
+
+# a <- data10$RS %>% table() %>% as.data.frame() 
+# a$Freq %>% sum()
+# b <- nrow(data10[data10$RS >=0, ])
+# a$pct <- (a[,2]/b*100) %>% round(digits = 1)
+# a 
+
+# choose *two* user types 
+data11 <- data10 %>% filter(data10$RS==0L | data10$RS==1L)
+# table(data11$RS) %>% sum()
 
 # (1- nrow(data11)/nrow(data10[is.na(data10$RS)==FALSE, ]))*100 # what % being dropped? 
-data11$RS <- ifelse(data11$RS != 0, 1L, data11$RS)
-# data11$RS <- as.integer(data11$RS)
-table(data11$RS)
+names(data11)
+temp <- map_lgl(data11, is.factor)
+map(data11[!temp], summary)
 
-data11$LIF_CYC01 <- ifelse(data11$LIF_CYC=="01", 1L, 0L)
-data11$LIF_CYC02 <- ifelse(data11$LIF_CYC=="02", 1L, 0L)
-data11$LIF_CYC03 <- ifelse(data11$LIF_CYC=="03", 1L, 0L)
-data11$LIF_CYC04 <- ifelse(data11$LIF_CYC=="04", 1L, 0L)
-data11$LIF_CYC05 <- ifelse(data11$LIF_CYC=="05", 1L, 0L)
-data11$LIF_CYC06 <- ifelse(data11$LIF_CYC=="06", 1L, 0L)
-data11$LIF_CYC07 <- ifelse(data11$LIF_CYC=="07", 1L, 0L)
-data11$LIF_CYC08 <- ifelse(data11$LIF_CYC=="08", 1L, 0L)
-data11$LIF_CYC09 <- ifelse(data11$LIF_CYC=="09", 1L, 0L)
-data11$LIF_CYC10 <- ifelse(data11$LIF_CYC=="10", 1L, 0L)
+data11$LIF_CYC01 <- ifelse(data11$LIF_CYC2=="1", 1L, 0L)
+data11$LIF_CYC02 <- ifelse(data11$LIF_CYC2=="2", 1L, 0L)
+data11$LIF_CYC03 <- ifelse(data11$LIF_CYC2=="3", 1L, 0L)
+data11$LIF_CYC04 <- ifelse(data11$LIF_CYC2=="4", 1L, 0L)
+data11$LIF_CYC05 <- ifelse(data11$LIF_CYC2=="5", 1L, 0L)
+data11$LIF_CYC06 <- ifelse(data11$LIF_CYC2=="6", 1L, 0L)
 
-data11$HHFAMINC01 <- ifelse(data11$HHFAMINC=="01", 1, 0)
-data11$HHFAMINC02 <- ifelse(data11$HHFAMINC=="02", 1, 0)
-data11$HHFAMINC03 <- ifelse(data11$HHFAMINC=="03", 1, 0)
-data11$HHFAMINC04 <- ifelse(data11$HHFAMINC=="04", 1, 0)
-data11$HHFAMINC05 <- ifelse(data11$HHFAMINC=="05", 1, 0)
-data11$HHFAMINC06 <- ifelse(data11$HHFAMINC=="06", 1, 0)
-data11$HHFAMINC07 <- ifelse(data11$HHFAMINC=="07", 1, 0)
-data11$HHFAMINC08 <- ifelse(data11$HHFAMINC=="08", 1, 0)
-data11$HHFAMINC09 <- ifelse(data11$HHFAMINC=="09", 1, 0)
-data11$HHFAMINC10 <- ifelse(data11$HHFAMINC=="10", 1, 0)
-data11$HHFAMINC11 <- ifelse(data11$HHFAMINC=="11", 1, 0)
+data11$HHFAMINC01 <- ifelse(data11$HHFAMINC2=="1", 1, 0)
+data11$HHFAMINC02 <- ifelse(data11$HHFAMINC2=="2", 1, 0)
+data11$HHFAMINC03 <- ifelse(data11$HHFAMINC2=="3", 1, 0)
+data11$HHFAMINC04 <- ifelse(data11$HHFAMINC2=="4", 1, 0)
+data11$HHFAMINC05 <- ifelse(data11$HHFAMINC2=="5", 1, 0)
+data11$HHFAMINC06 <- ifelse(data11$HHFAMINC2=="6", 1, 0)
 
 data11$R_RACE01 <- ifelse(data11$R_RACE=="01", 1, 0)
 data11$R_RACE02 <- ifelse(data11$R_RACE=="02", 1, 0)
@@ -169,50 +162,81 @@ data11$R_RACE05 <- ifelse(data11$R_RACE=="05", 1, 0)
 data11$R_RACE06 <- ifelse(data11$R_RACE=="06", 1, 0)
 data11$R_RACE97 <- ifelse(data11$R_RACE=="97", 1, 0)
 
-data11$EDUC01 <- ifelse(data11$EDUC=="01", 1, 0)
-data11$EDUC02 <- ifelse(data11$EDUC=="02", 1, 0)
-data11$EDUC03 <- ifelse(data11$EDUC=="03", 1, 0)
-data11$EDUC04 <- ifelse(data11$EDUC=="04", 1, 0)
-data11$EDUC05 <- ifelse(data11$EDUC=="05", 1, 0)
+data11$EDUC01 <- ifelse(data11$EDUC=="1", 1, 0)
+data11$EDUC02 <- ifelse(data11$EDUC=="2", 1, 0)
+data11$EDUC03 <- ifelse(data11$EDUC=="3", 1, 0)
+data11$EDUC04 <- ifelse(data11$EDUC=="4", 1, 0)
 
-data11$OCCAT01 <- ifelse(data11$OCCAT=="01", 1, 0)
-data11$OCCAT02 <- ifelse(data11$OCCAT=="02", 1, 0)
-data11$OCCAT03 <- ifelse(data11$OCCAT=="03", 1, 0)
-data11$OCCAT04 <- ifelse(data11$OCCAT=="04", 1, 0)
-data11$OCCAT97 <- ifelse(data11$OCCAT=="97", 1, 0)
+data11$OCCAT01 <- ifelse(data11$OCCAT2=="1", 1, 0)
+data11$OCCAT02 <- ifelse(data11$OCCAT2=="2", 1, 0)
+data11$OCCAT03 <- ifelse(data11$OCCAT2=="3", 1, 0)
+data11$OCCAT04 <- ifelse(data11$OCCAT2=="4", 1, 0)
+data11$OCCAT05 <- ifelse(data11$OCCAT2=="5", 1, 0)
 
-data11$Telecommute00 <- ifelse(data11$Telecommute==0, 1, 0)
-data11$Telecommute01 <- ifelse(data11$Telecommute==1, 1, 0)
-data11$Telecommute02 <- ifelse(data11$Telecommute==2, 1, 0)
-data11$Telecommute03 <- ifelse(data11$Telecommute==3, 1, 0)
-data11$Telecommute04 <- ifelse(data11$Telecommute==4, 1, 0)
+data11$Telecommute00 <- ifelse(data11$Telecommute=="0", 1, 0)
+data11$Telecommute01 <- ifelse(data11$Telecommute=="1", 1, 0)
+data11$Telecommute02 <- ifelse(data11$Telecommute=="2", 1, 0)
+data11$Telecommute03 <- ifelse(data11$Telecommute=="3", 1, 0)
+data11$Telecommute04 <- ifelse(data11$Telecommute=="4", 1, 0)
 
-colnames(data11)
-nrow(data11)
+data11$deliver00 <- ifelse(data11$deliver=="0", 1, 0) 
+data11$deliver01 <- ifelse(data11$deliver=="1", 1, 0) 
+data11$deliver02 <- ifelse(data11$deliver=="2", 1, 0) 
+data11$deliver03 <- ifelse(data11$deliver=="3", 1, 0) 
+data11$deliver04 <- ifelse(data11$deliver=="4", 1, 0) 
 
-#data11 <- data11[data11$UACE10==63217, ] #NY; 3817-Atlanta 
-#data11$RS <- as.factor(data11$RS)
+data11$PC00 <- ifelse(data11$PC2=="0", 1, 0) 
+data11$PC01 <- ifelse(data11$PC2=="1", 1, 0) 
+data11$PC02 <- ifelse(data11$PC2=="2", 1, 0) 
+data11$PC03 <- ifelse(data11$PC2=="3", 1, 0) 
+data11$PC04 <- ifelse(data11$PC2=="4", 1, 0) 
+
+data11$SPHONE00 <- ifelse(data11$SPHONE2=="0", 1, 0) 
+data11$SPHONE01 <- ifelse(data11$SPHONE2=="1", 1, 0) 
+data11$SPHONE02 <- ifelse(data11$SPHONE2=="2", 1, 0) 
+data11$SPHONE03 <- ifelse(data11$SPHONE2=="3", 1, 0) 
+data11$SPHONE04 <- ifelse(data11$SPHONE2=="4", 1, 0) 
+
+data11$TAB00 <- ifelse(data11$TAB2=="0", 1, 0) 
+data11$TAB01 <- ifelse(data11$TAB2=="1", 1, 0) 
+data11$TAB02 <- ifelse(data11$TAB2=="2", 1, 0) 
+data11$TAB03 <- ifelse(data11$TAB2=="3", 1, 0) 
+data11$TAB04 <- ifelse(data11$TAB2=="4", 1, 0) 
+
+data11$WEB00 <- ifelse(data11$WEB2=="0", 1, 0) 
+data11$WEB01 <- ifelse(data11$WEB2=="1", 1, 0) 
+data11$WEB02 <- ifelse(data11$WEB2=="2", 1, 0) 
+data11$WEB03 <- ifelse(data11$WEB2=="3", 1, 0) 
+data11$WEB04 <- ifelse(data11$WEB2=="4", 1, 0) 
+
+names(data11)
+
 usedvars <- c(
   "HOUSEID", "PERSONID", "RIDESHARE", "HHVEHCNT", "HHVEHCNT2", "PTUSED2", "NWBMODE2", "RS", 
   "LIF_CYC01", "LIF_CYC02", "LIF_CYC03", "LIF_CYC04", "LIF_CYC05", "LIF_CYC06", 
-  "LIF_CYC07", "LIF_CYC08", "LIF_CYC09", "LIF_CYC10", "WRKCOUNT", "DRVRCNT", "NUMCHILD", "YOUNGCHILD", 
+  "WRKCOUNT", "DRVRCNT", "NUMCHILD", "YOUNGCHILD", 
   "HHFAMINC01", "HHFAMINC02", "HHFAMINC03", "HHFAMINC04", "HHFAMINC05", "HHFAMINC06", 
-  "HHFAMINC07", "HHFAMINC08", "HHFAMINC09", "HHFAMINC10", "HHFAMINC11", "HOMEOWN2", 
+  "HOMEOWN2", 
   "home.den.st", "home.den.pp", "home.jobrich", "home.oldnbhd", "home.sfh",      
   "home.pctcoll", "home.pctyoung", "home.pctxveh", "work.den.tech", "work.den.serv", 
   "work.den.st", "work.den.pp", "work.jobrich", "work.oldnbhd", "work.sfh", 
   "R_SEX", "R_AGE", "R_RACE01", "R_RACE02", "R_RACE03", "R_RACE04", "R_RACE05", "R_RACE06", "R_RACE97", 
-  "R_HISP", "DRIVER", "EDUC01", "EDUC02", "EDUC03", "EDUC04", "EDUC05", 
-  "OCCAT01", "OCCAT02", "OCCAT03", "OCCAT04", "OCCAT97", 
+  "R_HISP", "DRIVER", "EDUC01", "EDUC02", "EDUC03", "EDUC04", 
+  "lncommute", "WKFTPT2", "FLEXTIME2", "GT1JBLWK2", 
+  "OCCAT01", "OCCAT02", "OCCAT03", "OCCAT04", "OCCAT05", 
   "Telecommute00", "Telecommute01", "Telecommute02", "Telecommute03", "Telecommute04", 
-  "medcon", "deliver", "UACE10"
+  "deliver00", "deliver01", "deliver02", "deliver03", "deliver04", 
+  "PC00", "PC01", "PC02", "PC03", "PC04", 
+  "SPHONE00", "SPHONE01", "SPHONE02", "SPHONE03", "SPHONE04", 
+  "TAB00", "TAB01", "TAB02", "TAB03", "TAB04", 
+  "WEB00", "WEB01", "WEB02", "WEB03", "WEB04", 
+  "medcon", "UACE10"
 ) # "GTscore.std", 
 data12 <- data11[, usedvars]
 data12 <- data12[complete.cases(data12), ] # drop cases who worked outside of UAs 
 names(data12)
-
+nrow(data12)
 # map_chr(data12, class)
-# sum(is.na(data12))
 
 summary(data12$HHVEHCNT2)
 table(data12$RS)
@@ -264,9 +288,6 @@ nhts_cases_byua <- data13 %>% group_by(UACE10) %>% summarize(cases = n())
 data13 <- data13 %>%
   left_join(nhts_cases_byua, by = "UACE10")
 
-# write_rds(data13, paste0(filepath, "/11_Scratch/data13.rds"))
-# data13 <- read_rds(paste0(filepath, "/11_Scratch/data13.rds")) 
-
 a <- ddply(data13, .(UACE10), summarize, 
            Raw=mean(cases), 
            User=sum(is.na(HOUSEID)==FALSE & RS==1), 
@@ -286,22 +307,27 @@ a[order(-a$User, -a$pctUser), ]
 ## library(stargazer)
 
 names(data13)
-map(data13, summary)
+# map(data13, summary)
 
 psm <- glm(
   RS ~ 
-    LIF_CYC02 + LIF_CYC03 + LIF_CYC04 + LIF_CYC05 + LIF_CYC06 + LIF_CYC07 + LIF_CYC08 + 
-    LIF_CYC09 + LIF_CYC10 + WRKCOUNT + DRVRCNT + NUMCHILD + YOUNGCHILD + 
-    HHFAMINC02 + HHFAMINC03 + HHFAMINC04 + HHFAMINC05 + HHFAMINC06 + HHFAMINC07 + 
-    HHFAMINC08 + HHFAMINC09 + HHFAMINC10 + HHFAMINC11 + HOMEOWN2 + 
+    LIF_CYC02 + LIF_CYC03 + LIF_CYC04 + LIF_CYC05 + LIF_CYC06 + 
+    WRKCOUNT + DRVRCNT + NUMCHILD + YOUNGCHILD + 
+    HHFAMINC02 + HHFAMINC03 + HHFAMINC04 + HHFAMINC05 + HHFAMINC06 + HOMEOWN2 + 
     home.den.pp + home.den.st + home.jobrich + home.oldnbhd + home.sfh + 
     home.pctcoll + home.pctyoung + home.pctxveh + 
     work.den.pp + work.den.st + work.jobrich + work.oldnbhd + work.sfh + 
     work.den.tech + work.den.serv + 
-    R_SEX + R_AGE + R_RACE02 + R_RACE03 + R_RACE04 + R_RACE06 + R_RACE97 + 
-    R_HISP + DRIVER + EDUC02 + EDUC03 + EDUC04 + EDUC05 + 
-    OCCAT02 + OCCAT03 + OCCAT04 + Telecommute01 + Telecommute02 + Telecommute03 +
-    Telecommute04 + medcon + deliver, #+
+    R_SEX + R_AGE + R_RACE02 + R_RACE03 + R_RACE04 + R_RACE06 + R_RACE97 + # R_RACE01 + 
+    R_HISP + DRIVER + EDUC02 + EDUC03 + EDUC04 +  OCCAT01 + OCCAT02 + OCCAT03 + OCCAT05 + # OCCAT04 + 
+    lncommute + WKFTPT2 + FLEXTIME2 + GT1JBLWK2 +  
+    Telecommute01 + Telecommute02 + Telecommute03 + Telecommute04 + 
+    deliver01 + deliver02 + deliver03 + deliver04 + 
+    PC01 + PC02 + PC03 + PC04 + 
+    SPHONE01 + SPHONE02 + SPHONE03 + SPHONE04 + 
+    TAB01 + TAB02 + TAB03 + TAB04 + 
+    WEB01 + WEB02 + WEB03 + WEB04 + 
+    medcon, #+
   #UA02 + UA03 + UA04 + UA05 + UA06 + UA07 + UA08 + UA09 + UA10 + 
   #UA11 + UA12 + UA13 + UA14 + UA15 + UA16 + UA17 + UA18 + UA19 + UA20 + 
   #UA21 + UA22 + UA23 + UA24 + UA25 + UA26 + UA27 + UA28 + UA29 + UA30 + 
@@ -314,7 +340,8 @@ psm <- glm(
 summary(psm)
 ## stargazer(psm, type="text")
 
-xvars <- data13 %>% names() %>% .[c(3:77)]
+b <- ncol(data13) - 53
+xvars <- data13 %>% names() %>% .[c(3:b)]
 xvars2 <- c(xvars, "distance")
 
 summary.unmatched <-CreateTableOne(vars=xvars, strata="RS", data=data13, test=TRUE)
@@ -408,7 +435,12 @@ match.UA50.across <- # 6,822 cases from 50 UAs
     weights3 = ifelse(RS==0, distance/(1-distance), 1) 
   )  
 
-match.UA50.across %>% group_by(UACE10, RS) %>% summarize(n = n()) %>% View()
+match.UA50.across %>% 
+  group_by(UACE10, RS) %>% 
+  summarize(n = n()) %>% 
+  spread(key = RS, value = n) %>% 
+  left_join(nhtsualist2, by = "UACE10") %>%
+  View()
 
 
 

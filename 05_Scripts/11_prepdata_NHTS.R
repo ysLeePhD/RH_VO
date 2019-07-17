@@ -369,7 +369,7 @@ data08$R_HISP <- #1=Yes, 2=No
   as.factor()
 
 data08$DRIVER <- 
-  recode(data08$DRIVER, "01" = 1L, "02" = 0L, .default = NA_integer_)
+  recode(data08$DRIVER, "01" = 1L, "02" = 0L, .default = NA_integer_) 
 
 table(data08$EDUC)
 data08$EDUC <- 
@@ -481,7 +481,7 @@ data08$deliver <- ifelse(data08$DELIVER >=  1, 1, data08$deliver) # less than on
 data08$deliver <- ifelse(data08$DELIVER >=  4, 2, data08$deliver) # once a week  
 data08$deliver <- ifelse(data08$DELIVER >=  8, 3, data08$deliver) # twice a week 
 data08$deliver <- ifelse(data08$DELIVER >= 12, 4, data08$deliver) # 3 or more times a week 
-table(data08$deliver)
+data08$deliver <- data08$deliver %>% round(digits = 0) %>% as.factor()
 # 01 = Daily
 # 02 = A few times a week
 # 03 = A few times a month
