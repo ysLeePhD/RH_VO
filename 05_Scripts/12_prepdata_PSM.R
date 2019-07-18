@@ -690,7 +690,7 @@ match.UA50.across[, c(5, 8, 6:7)] %>% map(table)
 #   write.csv(file.path(filepath, "15_Model/round03_01/across01.csv"))
 # match.UA50.across[, c(27, 5, 8, 6:7, 9:26, 28:96, 98:147, 151)] %>% 
 #   write.csv(file.path(filepath, "15_Model/round03_02/across02.csv"))
-match.UA50.across[, c(27, 5, 8, 6:7, 9:26, 28:96, 98:147, 151)] %>% 
+match.UA50.across[, c(27, 5, 8, 6:7, 9:26, 28:96, 98:116, 118:147, 151)] %>%  
   write.csv(file.path(filepath, "15_Model/round03_03/across03.csv"))
 
 varname.long <- match.UA50.across[, c(27, 5, 8, 6:7, 9:26, 28:96, 98:147, 151)] %>% names() 
