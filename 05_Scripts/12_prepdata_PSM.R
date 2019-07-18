@@ -473,7 +473,8 @@ match.UA50.across %>%
   arrange(UAno) %>% #by default ascending order 
   View()
 
-
+match.UA50.across %>% write_rds(file.path(filepath, "11_Scratch/match_UA50_across_all.rds"))
+# match.UA50.across <- read_rds(file.path(filepath, "11_Scratch/match_UA50_across_all.rds"))
 
 
 # Task 4-3. before/after matching comparison ----  
