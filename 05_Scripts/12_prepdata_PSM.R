@@ -218,7 +218,8 @@ data11$WEB04 <- ifelse(data11$WEB2=="4", 1, 0)
 names(data11)
 
 usedvars <- c(
-  "HOUSEID", "PERSONID", "RIDESHARE", "LNRS", "HHVEHCNT", "HHVEHCNT2", "PTUSED2", "NWBMODE2", "RS", 
+  "HOUSEID", "PERSONID", "RIDESHARE", "LNRS", "HHVEHCNT", "LNHHVEH", "HHVEHCNT2", 
+  "PTUSED2", "LNPTUSED", "LNWBMODE", "NWBMODE2", "RS", 
   "LIF_CYC01", "LIF_CYC02", "LIF_CYC03", "LIF_CYC04", "LIF_CYC05", "LIF_CYC06", 
   "WRKCOUNT", "DRVRCNT", "NUMCHILD", "YOUNGCHILD", 
   "HHFAMINC01", "HHFAMINC02", "HHFAMINC03", "HHFAMINC04", "HHFAMINC05", "HHFAMINC06", 
@@ -447,9 +448,16 @@ match.UA50.across <- # 6,704 cases from 50 UAs
   as_tibble() %>% 
   mutate(
     weights2 = round(ifelse(RS==0, weights/b, weights), digits = 0), 
-    weights3 = ifelse(RS==0, distance/(1-distance), 1) 
+    weights3 = ifelse(RS==0, weights2*distance/(1-distance), 1) 
   )  
 
+match.UA50.across$RS %>% table()
+
+match.UA50.across %>% filter(RS==0) %>% .$weights2 %>% table() 
+match.UA50.across %>% filter(RS==0) %>% .$weights2 %>% sum() 
+
+match.UA50.across %>% filter(RS==0) %>% .$weights3 %>% table() 
+match.UA50.across %>% filter(RS==0) %>% .$weights3 %>% sum() 
 
 nhtsualist3 <- nhtsualist2
 nhtsualist3$UAno <- rownames(nhtsualist3) %>% as.integer()
@@ -461,7 +469,7 @@ match.UA50.across %>%
   spread(key = RS, value = n) %>% 
   mutate( n = `0` + `1`) %>% 
   left_join(nhtsualist3, by = "UACE10") %>%
-  filter(n>67.04) %>%
+  #filter(n>67.04) %>%
   arrange(UAno) %>% #by default ascending order 
   View()
 
@@ -684,14 +692,21 @@ match.data.within2[, c(36, 5, 8, 6:7, 9:35, 37:89)] %>%
 ### Task 4-4-2. Across UA matching ---- 
 
 match.UA50.across %>% names()
-match.UA50.across[, c(5, 8, 6:7)] %>% map(table)
+# for matching by frequency category (1, 2, and 3)
+# match.UA50.across[, c(5, 8, 6:7)] %>% map(table)
+# for all matching (regardless of ridehailnig frequency)  
+match.UA50.across[, c(4, 6, 9, 10)] %>% map(hist)
+
 
 # match.UA50.across[, c(27, 5, 8, 6:7, 9:26, 28:96, 98:147, 151)] %>% 
 #   write.csv(file.path(filepath, "15_Model/round03_01/across01.csv"))
 # match.UA50.across[, c(27, 5, 8, 6:7, 9:26, 28:96, 98:147, 151)] %>% 
 #   write.csv(file.path(filepath, "15_Model/round03_02/across02.csv"))
-match.UA50.across[, c(27, 5, 8, 6:7, 9:26, 28:96, 98:116, 118:147, 151)] %>%  
-  write.csv(file.path(filepath, "15_Model/round03_03/across03.csv"))
+# match.UA50.across[, c(27, 5, 8, 6:7, 9:26, 28:96, 98:116, 118:147, 151)] %>%  
+#   write.csv(file.path(filepath, "15_Model/round03_03/across03.csv"))
+match.UA50.across[, c(27, 5, 8, 6:7, 9:26, 28:96, 98:116, 118:147, 151)] %>%
+  write.csv(file.path(filepath, "15_Model/round03_04/across_all.csv"))
+
 
 varname.long <- match.UA50.across[, c(27, 5, 8, 6:7, 9:26, 28:96, 98:147, 151)] %>% names() 
 
