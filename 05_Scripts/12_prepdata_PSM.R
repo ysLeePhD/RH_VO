@@ -137,7 +137,7 @@ data10$RS %>% table() %>% sum()
 data10$RS %>% summary() # missing 32 cases 
 data10$RS %>% class()
 
-data11 <- data10 %>% filter(data10$RS==0L | data10$RS==2L)
+data11 <- data10 %>% filter(data10$RS==0L | data10$RS==3L)
 data11$RS %>% table() 
 data11$RS %>% table() %>% sum()
 
@@ -318,7 +318,7 @@ data13 %>% .$RS %>% table()
 data13$RS <- 
   data13$RS %>% 
   recode(
-    "0"=0L, "1"=1L, "2"=1L, "3"=3L,
+    "0"=0L, "1"=1L, "2"=1L, "3"=1L,
     .default=NA_integer_, .missing = NA_integer_
   ) 
 data13 %>% .$RS %>% table() 
@@ -686,8 +686,12 @@ match.data.within2[, c(36, 5, 8, 6:7, 9:35, 37:89)] %>%
 match.UA50.across %>% names()
 match.UA50.across[, c(5, 8, 6:7)] %>% map(table)
 
+# match.UA50.across[, c(27, 5, 8, 6:7, 9:26, 28:96, 98:147, 151)] %>% 
+#   write.csv(file.path(filepath, "15_Model/round03_01/across01.csv"))
+# match.UA50.across[, c(27, 5, 8, 6:7, 9:26, 28:96, 98:147, 151)] %>% 
+#   write.csv(file.path(filepath, "15_Model/round03_02/across02.csv"))
 match.UA50.across[, c(27, 5, 8, 6:7, 9:26, 28:96, 98:147, 151)] %>% 
-  write.csv(file.path(filepath, "15_Model/round03_02/across02.csv"))
+  write.csv(file.path(filepath, "15_Model/round03_03/across03.csv"))
 
 varname.long <- match.UA50.across[, c(27, 5, 8, 6:7, 9:26, 28:96, 98:147, 151)] %>% names() 
 
@@ -706,8 +710,13 @@ varname.short2 <- match.UA50.across[, c(98:147, 151)] %>% names()
 
 varname.short3 <- c(varname.short1, varname.short2)
 
-cbind(varname.short3, varname.long) %>% 
-  write.csv(file.path(filepath, "15_Model/round03_02/varname.csv"))
+# cbind(varname.short3, varname.long) %>% 
+#   write.csv(file.path(filepath, "15_Model/round03_01/varname.csv"))
+# cbind(varname.short3, varname.long) %>% 
+#   write.csv(file.path(filepath, "15_Model/round03_02/varname.csv"))
+# cbind(varname.short3, varname.long) %>% 
+#   write.csv(file.path(filepath, "15_Model/round03_03/varname.csv"))
+
 
 
 
