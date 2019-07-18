@@ -435,11 +435,19 @@ match.UA50.across <- # 6,704 cases from 50 UAs
     weights3 = ifelse(RS==0, distance/(1-distance), 1) 
   )  
 
+
+nhtsualist3 <- nhtsualist2
+nhtsualist3$UAno <- rownames(nhtsualist3) %>% as.integer()
+
+
 match.UA50.across %>% 
   group_by(UACE10, RS) %>% 
   summarize(n = n()) %>% 
   spread(key = RS, value = n) %>% 
-  left_join(nhtsualist2, by = "UACE10") %>%
+  mutate( n = `0` + `1`) %>% 
+  left_join(nhtsualist3, by = "UACE10") %>%
+  filter(n>67.04) %>%
+  arrange(UAno) %>% #by default ascending order 
   View()
 
 
@@ -661,29 +669,30 @@ match.data.within2[, c(36, 5, 8, 6:7, 9:35, 37:89)] %>%
 ### Task 4-4-2. Across UA matching ---- 
 
 match.UA50.across %>% names()
-match.UA50.across %>% select(-NAME10, -cases, -distance, -weights, -weights3) %>% names()
-
 match.UA50.across[, c(5, 8, 6:7)] %>% map(table)
-match.UA50.across[, c(36, 5, 8, 6:7, 9:35, 37:78, 131:134)] %>% names()
-match.UA50.across[, c(36, 5, 8, 6:7, 9:35, 37:78, 131:134)] %>% .[, c(48:54)] %>% map(table)
 
+match.UA50.across[, c(27, 5, 8, 6:7, 9:26, 28:96, 98:147, 151)] %>% 
+  write.csv(file.path(filepath, "15_Model/round03_01/across01.csv"))
 
-%>% 
-  write.csv(file.path(filepath, "15_Model/round02/across01.csv"))
+varname.long <- match.UA50.across[, c(27, 5, 8, 6:7, 9:26, 28:96, 98:147, 151)] %>% names() 
 
-varname.long <- match.UA50.across[, c(36, 5, 8, 6:7, 9:35, 37:78, 131:134)] %>% names() 
-
-varname.short <- c("ybe", "yvo",  "yrh",  "ypt",  "ywb",   
+varname.short1 <- c("ybe", "yvo",  "yrh",  "ypt",  "ywb",   
                    "x1",  "x2",  "x3",  "x4",  "x5",  "x6",  "x7",  "x8",  "x9",  "x10", 
                    "x11", "x12", "x13", "x14", "x15", "x16", "x17", "x18", "x19", "x20", 
                    "x21", "x22", "x23", "x24", "x25", "x26", "x27", "x28", "x29", "x30", 
                    "x31", "x32", "x33", "x34", "x35", "x36", "x37", "x38", "x39", "x40",
                    "x41", "x42", "x43", "x44", "x45", "x46", "x47", "x48", "x49", "x50", 
                    "x51", "x52", "x53", "x54", "x55", "x56", "x57", "x58", "x59", "x60", 
-                   "x61", "x62", "x63", "x64", "x65", "x66", "x67", "x68", 
-                   "UA",  "ps", "WT1", "WT2", "WT3") 
+                   "x61", "x62", "x63", "x64", "x65", "x66", "x67", "x68", "x69", "x70", 
+                   "x71", "x72", "x73", "x74", "x75", "x76", "x77", "x78", "x79", "x80", 
+                   "x81", "x82", "x83", "x84", "x85", "x86", 
+                   "UA") 
+varname.short2 <- match.UA50.across[, c(98:147, 151)] %>% names()
 
-varname.dict <- cbind(varname.short, varname.long) 
+varname.short3 <- c(varname.short1, varname.short2)
+
+cbind(varname.short3, varname.long) %>% 
+  write.csv(file.path(filepath, "15_Model/round03_01/varname.csv"))
 
 
 
