@@ -132,8 +132,14 @@ data10$RS <- ifelse(
 # a 
 
 # choose *two* user types 
-data11 <- data10 %>% filter(data10$RS==0L | data10$RS==1L)
-# table(data11$RS) %>% sum()
+data10$RS %>% table()
+data10$RS %>% table() %>% sum()
+data10$RS %>% summary() # missing 32 cases 
+data10$RS %>% class()
+
+data11 <- data10 %>% filter(data10$RS==0L | data10$RS==2L)
+data11$RS %>% table() 
+data11$RS %>% table() %>% sum()
 
 # (1- nrow(data11)/nrow(data10[is.na(data10$RS)==FALSE, ]))*100 # what % being dropped? 
 names(data11)
@@ -232,6 +238,7 @@ usedvars <- c(
   "WEB00", "WEB01", "WEB02", "WEB03", "WEB04", 
   "medcon", "UACE10"
 ) # "GTscore.std", 
+
 data12 <- data11[, usedvars]
 data12 <- data12[complete.cases(data12), ] # drop cases who worked outside of UAs 
 names(data12)
@@ -290,8 +297,8 @@ data13 <- data13 %>%
 
 a <- ddply(data13, .(UACE10), summarize, 
            Raw=mean(cases), 
-           User=sum(is.na(HOUSEID)==FALSE & RS==1), 
-           NonUser=sum(is.na(HOUSEID)==FALSE & RS==0))
+           User=sum(is.na(HOUSEID)==FALSE & RS!=0L), 
+           NonUser=sum(is.na(HOUSEID)==FALSE & RS==0L))
 a$pctUser <- round(a$User/a$Raw*100, 1)
 a$pctNonUser <- round(a$NonUser/a$Raw*100, 1)
 a <- merge(a, nhtsualist[, c("UACE10", "NAME10")], by="UACE10")
@@ -306,8 +313,15 @@ a[order(-a$User, -a$pctUser), ]
 ## install.packages("stargazer")
 ## library(stargazer)
 
-names(data13)
-# map(data13, summary)
+data13 %>% names() 
+data13 %>% .$RS %>% table() 
+data13$RS <- 
+  data13$RS %>% 
+  recode(
+    "0"=0L, "1"=1L, "2"=1L, "3"=3L,
+    .default=NA_integer_, .missing = NA_integer_
+  ) 
+data13 %>% .$RS %>% table() 
 
 psm <- glm(
   RS ~ 
@@ -340,6 +354,7 @@ psm <- glm(
 summary(psm)
 ## stargazer(psm, type="text")
 
+data13 %>% names()
 b <- ncol(data13) - 53
 xvars <- data13 %>% names() %>% .[c(3:b)]
 xvars2 <- c(xvars, "distance")
@@ -446,7 +461,7 @@ match.UA50.across %>%
   spread(key = RS, value = n) %>% 
   mutate( n = `0` + `1`) %>% 
   left_join(nhtsualist3, by = "UACE10") %>%
-  filter(n>67.04) %>%
+  # filter(n>67.04) %>%
   arrange(UAno) %>% #by default ascending order 
   View()
 
@@ -672,7 +687,7 @@ match.UA50.across %>% names()
 match.UA50.across[, c(5, 8, 6:7)] %>% map(table)
 
 match.UA50.across[, c(27, 5, 8, 6:7, 9:26, 28:96, 98:147, 151)] %>% 
-  write.csv(file.path(filepath, "15_Model/round03_01/across01.csv"))
+  write.csv(file.path(filepath, "15_Model/round03_02/across02.csv"))
 
 varname.long <- match.UA50.across[, c(27, 5, 8, 6:7, 9:26, 28:96, 98:147, 151)] %>% names() 
 
@@ -692,7 +707,7 @@ varname.short2 <- match.UA50.across[, c(98:147, 151)] %>% names()
 varname.short3 <- c(varname.short1, varname.short2)
 
 cbind(varname.short3, varname.long) %>% 
-  write.csv(file.path(filepath, "15_Model/round03_01/varname.csv"))
+  write.csv(file.path(filepath, "15_Model/round03_02/varname.csv"))
 
 
 
