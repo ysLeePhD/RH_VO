@@ -137,7 +137,7 @@ data10$RS %>% table() %>% sum()
 data10$RS %>% summary() # missing 32 cases 
 data10$RS %>% class()
 
-data11 <- data10 %>% filter(data10$RS==0L | data10$RS==3L)
+data11 <- data10 %>% filter(data10$RS==0L | data10$RS!=0L)
 data11$RS %>% table() 
 data11$RS %>% table() %>% sum()
 
@@ -218,7 +218,7 @@ data11$WEB04 <- ifelse(data11$WEB2=="4", 1, 0)
 names(data11)
 
 usedvars <- c(
-  "HOUSEID", "PERSONID", "RIDESHARE", "HHVEHCNT", "HHVEHCNT2", "PTUSED2", "NWBMODE2", "RS", 
+  "HOUSEID", "PERSONID", "RIDESHARE", "LNRS", "HHVEHCNT", "HHVEHCNT2", "PTUSED2", "NWBMODE2", "RS", 
   "LIF_CYC01", "LIF_CYC02", "LIF_CYC03", "LIF_CYC04", "LIF_CYC05", "LIF_CYC06", 
   "WRKCOUNT", "DRVRCNT", "NUMCHILD", "YOUNGCHILD", 
   "HHFAMINC01", "HHFAMINC02", "HHFAMINC03", "HHFAMINC04", "HHFAMINC05", "HHFAMINC06", 
@@ -461,7 +461,7 @@ match.UA50.across %>%
   spread(key = RS, value = n) %>% 
   mutate( n = `0` + `1`) %>% 
   left_join(nhtsualist3, by = "UACE10") %>%
-  # filter(n>67.04) %>%
+  filter(n>67.04) %>%
   arrange(UAno) %>% #by default ascending order 
   View()
 

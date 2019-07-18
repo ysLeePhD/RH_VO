@@ -113,6 +113,8 @@ hh3  <- left_join(hh2, home, by="HOUSEID") # home blockgroup no missing
 per3 <- left_join(per2, work[, c("HOUSEID", "PERSONID", "WKSTFIPS", "WKCNFIPS", "WORKCT")], 
                   by=c("HOUSEID", "PERSONID"))
 hhp <- left_join(hh3, per3, by=c("HOUSEID"))
+
+bgd <- read_rds(paste0(filepath, "/11_Scratch/bgd.rds"))
 hhpbg <- left_join(hhp, bgd, by=c("HHSTFIPS","HHCNTYFP","HHCT","HHBG")) %>%
   filter(is.na(UACE10) == FALSE) %>% # residents within the top 50 UA
   filter(nchar(WORKCT) == 6) # workers 
@@ -153,6 +155,7 @@ hhpbg$PTUSED2 <- as.factor(hhpbg$PTUSED2)
 
 hhpbg$LNPTUSED <- ifelse(hhpbg$PTUSED>=0, log(hhpbg$PTUSED+1), NA)
 hhpbg$LNPTUSED %>% is.na() %>% sum() # NA 49 cases out of 37,118 no reporting 
+hhpbg$LNPTUSED %>% hist()
 
 summary(hhpbg$NBIKETRP)
 table(hhpbg$NBIKETRP) 
@@ -179,9 +182,10 @@ hhpbg$LNBIKEMODE <- ifelse(hhpbg$NBIKEMODE>=0, log(hhpbg$NBIKEMODE+1), NA)
 hhpbg$LNWALKMODE <- ifelse(hhpbg$NWALKMODE>=0, log(hhpbg$NWALKMODE+1), NA)
 
 hhpbg$NWBMODE <- hhpbg$NBIKEMODE + hhpbg$NWALKMODE
-hhpbg$LNWBMODE <- ifelse(hhpbg$NWBMODE>=0, log(hhpbg$NWBMODE+1), NA)
 summary(hhpbg$NWBMODE) # NA 279 cases out of 37,118 
 table(hhpbg$NWBMODE)
+hhpbg$LNWBMODE <- ifelse(hhpbg$NWBMODE>=0, log(hhpbg$NWBMODE+1), NA)
+hist(hhpbg$LNWBMODE)
 
 quantile(hhpbg[hhpbg$NWBMODE>=0, ]$NWBMODE, c(0.25, 0.5, 0.75, 0.9, 0.95, 0.99), na.rm=TRUE) 
 summary(hhpbg[hhpbg$NWBMODE>=0, ]$NWBMODE, c(0.25, 0.5, 0.75, 0.9, 0.95, 0.99), na.rm=TRUE) 
@@ -199,14 +203,29 @@ table(hhpbg$NWBMODE2)
 summary(hhpbg$NWBMODE2) # NA 279 cases out of 37,118 
 hhpbg$NWBMODE2 <- as.factor(hhpbg$NWBMODE2)
 
-data01 <- hhpbg[, c("HOUSEID", "PERSONID", "RIDESHARE", "HHVEHCNT", #"YEARMILE", # too many missing
-                    "PTUSED2","NWBMODE2")]
-data01$HHVEHCNT2 <- ifelse(round(data01$HHVEHCNT, 0)>2, 3, data01$HHVEHCNT)
-data01$HHVEHCNT2 <- as.factor(data01$HHVEHCNT2)
-data01 <- data01[, c(1:4, 7, 5:6)] 
+hhpbg$HHVEHCNT2 <- ifelse(round(hhpbg$HHVEHCNT, 0)>2, 3, hhpbg$HHVEHCNT)
+hhpbg$HHVEHCNT2 <- as.factor(hhpbg$HHVEHCNT2)
+
+hhpbg$LNRS <- ifelse(hhpbg$RIDESHARE>=0, log(hhpbg$RIDESHARE + 1), NA_real_)
+hhpbg$RIDESHARE %>% hist()
+hhpbg$LNRS %>% hist()
+
+hhpbg$HHVEHCNT %>% hist()
+
+hhpbg$HHVEHCNT %>% hist()
+hhpbg$LNHHVEH <- ifelse(hhpbg$HHVEHCNT>=0, log(hhpbg$HHVEHCNT+1), NA_real_)
+hhpbg$LNHHVEH %>% hist()
+
+data01 <- hhpbg[, c("HOUSEID", "PERSONID", 
+                    "RIDESHARE", "LNRS", 
+                    "HHVEHCNT", "LNHHVEH", "HHVEHCNT2", 
+                    "LNPTUSED", "PTUSED2", 
+                    "LNWBMODE", "NWBMODE2")] #"YEARMILE", # too many missing
 colnames(data01)
 map_chr(data01, class)
 
+write_rds(data01, file.path(filepath, "11_Scratch//data01.rds"))
+# data01 <- read_rds(file.path(filepath, "11_Scratch//data01.rds"))
 
 
 ## Task 3-2. HH variables ---- 
@@ -282,6 +301,7 @@ summary(data02$HOMEOWN2)
 
 data02$GEOID <- paste0(data02$HHSTFIPS, data02$HHCNTYFP, data02$HHCT)
 
+tract_be7 <- read_rds(paste0(filepath, "/11_Scratch/tract_be7.rds"))
 data03 <- data02 %>%
   left_join(tract_be7, by=c("GEOID", "UACE10")) %>%
   as_tibble() 
@@ -291,6 +311,7 @@ a <- b-4
 colnames(data03)[a:b] <- 
   c("home.den.st", "home.den.pp", "home.jobrich", "home.oldnbhd", "home.sfh")
 
+iv_all01 <- read_rds(paste0(filepath, "/11_Scratch/iv_all01.rds")) 
 data04 <- data03 %>% 
   left_join(iv_all01[, c("GEOID", "UACE10", "z.pctcoll", "z.pctyoung", "z.pctxveh")], # use of z-scores
             by=c("GEOID", "UACE10"))
@@ -334,6 +355,8 @@ data06$HOMEOWN <- NULL
 names(data06)
 map(data06, summary) # still includes those who work outside of UAs. 
 
+write_rds(data06, file.path(filepath, "11_Scratch/data06.rds")) 
+# data06 <- read_rds(file.path(filepath, "11_Scratch/data06.rds")) 
 
 
 ## Task 3-4. Person variables, "non-workers removed" ----
@@ -525,6 +548,8 @@ names(data09)
 map(data09[, 3:20], ~is.na(.) %>% sum()) # missing cases for each variable 
 unique(data09$HOUSEID) %>% length() # 25837 unique households 
 
+write_rds(data09, file.path(filepath, "11_Scratch/data09.rds"))
+# data09 <- read_rds(file.path(filepath, "11_Scratch/data09.rds")) 
 
 ## Task 3-5. Merge three dataframes ----
 
