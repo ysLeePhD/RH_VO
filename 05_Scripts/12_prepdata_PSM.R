@@ -705,11 +705,12 @@ match.UA50.across[, c(4, 6, 9, 10)] %>% map(hist)
 #   write.csv(file.path(filepath, "15_Model/round03_02/across02.csv"))
 # match.UA50.across[, c(27, 5, 8, 6:7, 9:26, 28:96, 98:116, 118:147, 151)] %>%  
 #   write.csv(file.path(filepath, "15_Model/round03_03/across03.csv"))
-match.UA50.across[, c(27, 5, 8, 6:7, 9:26, 28:96, 98:116, 118:147, 151)] %>%
+match.UA50.across[, c(31, 6, 4, 9:10, 13:30, 32:100, 102:151, 155)] %>% 
   write.csv(file.path(filepath, "15_Model/round03_04/across_all.csv"))
 
 
-varname.long <- match.UA50.across[, c(27, 5, 8, 6:7, 9:26, 28:96, 98:147, 151)] %>% names() 
+# varname.long <- match.UA50.across[, c(27, 5, 8, 6:7, 9:26, 28:96, 98:147, 151)] %>% names() 
+varname.long <- match.UA50.across[, c(31, 6, 4, 9:10, 13:30, 32:100, 102:151, 155)] %>% names 
 
 varname.short1 <- c("ybe", "yvo",  "yrh",  "ypt",  "ywb",   
                    "x1",  "x2",  "x3",  "x4",  "x5",  "x6",  "x7",  "x8",  "x9",  "x10", 
@@ -722,9 +723,10 @@ varname.short1 <- c("ybe", "yvo",  "yrh",  "ypt",  "ywb",
                    "x71", "x72", "x73", "x74", "x75", "x76", "x77", "x78", "x79", "x80", 
                    "x81", "x82", "x83", "x84", "x85", "x86", 
                    "UA") 
-varname.short2 <- match.UA50.across[, c(98:147, 151)] %>% names()
+# varname.short2 <- match.UA50.across[, c(98:147, 151)] %>% names() 
+varname.short2 <- match.UA50.across[, c(102:151, 155)] %>% names() 
 
-varname.short3 <- c(varname.short1, varname.short2)
+varname.short3 <- c(varname.short1, varname.short2) 
 
 # cbind(varname.short3, varname.long) %>% 
 #   write.csv(file.path(filepath, "15_Model/round03_01/varname.csv"))
@@ -732,7 +734,8 @@ varname.short3 <- c(varname.short1, varname.short2)
 #   write.csv(file.path(filepath, "15_Model/round03_02/varname.csv"))
 # cbind(varname.short3, varname.long) %>% 
 #   write.csv(file.path(filepath, "15_Model/round03_03/varname.csv"))
-
+cbind(varname.short3, varname.long) %>%
+  write.csv(file.path(filepath, "15_Model/round03_04/varname.csv"))
 
 
 
