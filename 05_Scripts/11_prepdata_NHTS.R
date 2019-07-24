@@ -95,7 +95,10 @@ Sys.getenv("CENSUS_API_KEY")
 
 hh <- read_csv(paste0(filepath, "/03_NHTS/Csv/hhpub.csv"))
 hh$NUMCHILD <- ifelse(hh$HHSIZE>=hh$NUMADLT, hh$HHSIZE-hh$NUMADLT, 0)
+#nrow(hh)
+
 per <- read_csv(paste0(filepath, "/03_NHTS/Csv/perpub.csv"))
+#nrow(per)
 
 home <- read_csv('F:/3 Study/0 medium term backup/2017_NHTS_US/GEO/hhctbg.csv') # restricted-use home block group file 
 work <- read_csv('F:/3 Study/0 medium term backup/2017_NHTS_US/GEO/workct.csv') # restricted-use work/school tract file
@@ -112,6 +115,7 @@ per2 <- per[, c("HOUSEID", "PERSONID", "R_RELAT", "R_SEX", "R_AGE", "R_HISP", "R
 hh3  <- left_join(hh2, home, by="HOUSEID") # home blockgroup no missing 
 per3 <- left_join(per2, work[, c("HOUSEID", "PERSONID", "WKSTFIPS", "WKCNFIPS", "WORKCT")], 
                   by=c("HOUSEID", "PERSONID"))
+
 hhp <- left_join(hh3, per3, by=c("HOUSEID"))
 
 bgd <- read_rds(paste0(filepath, "/11_Scratch/bgd.rds"))
@@ -127,7 +131,9 @@ hhpbg %>% select(tr) %>% n_distinct() # 11,424 unique tracts
 # table(hhpbg[hhpbg$YEARMILE==-1, ]$DRIVER)   #-1 appropriate skip 2 non-driver
 # table(hhpbg[hhpbg$DRIVER==-1, ]$R_AGE)      # all cases under 15
 
-
+# a <- hhpbg %>% nrow()
+# b <- hhpbg %>% filter(HHVEHCNT > 0 & DRIVER == "01" & YEARMILE < -9) %>% nrow()
+# round(b/a * 100, digits = 1)
 
 # Step 3. Prepare HH/PERSON/individual-level IV variables -------------------------------------
 

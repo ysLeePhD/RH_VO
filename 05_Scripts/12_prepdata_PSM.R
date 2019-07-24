@@ -97,6 +97,7 @@ Sys.getenv("CENSUS_API_KEY")
 
 # if I don't start from scratch 
 data10 <- read_rds(file.path(filepath, "11_Scratch/data10.rds"))
+nrow(data10)
 
 #4.1. Compute a new categorical variable, RS 
 # 0 - no use in the last 30 days 
@@ -137,7 +138,8 @@ data10$RS %>% table() %>% sum()
 data10$RS %>% summary() # missing 32 cases 
 data10$RS %>% class()
 
-data11 <- data10 %>% filter(data10$RS==0L | data10$RS!=0L)
+# data11 <- data10 %>% filter(data10$RS==0L | data10$RS!=0L)
+data11 <- data10 %>% filter(is.na(RS) == FALSE)
 data11$RS %>% table() 
 data11$RS %>% table() %>% sum()
 
@@ -305,7 +307,8 @@ a$pctNonUser <- round(a$NonUser/a$Raw*100, 1)
 a <- merge(a, nhtsualist[, c("UACE10", "NAME10")], by="UACE10")
 a[order(-a$User, -a$pctUser), ]
 
-
+# write_rds(data13, file.path(filepath, "11_Scratch/data13.rds"))
+data13 <- read_rds(file.path(filepath, "11_Scratch/data13.rds"))
 
 ## Task 4-2. PSM run binary logit ----
 
@@ -315,7 +318,7 @@ a[order(-a$User, -a$pctUser), ]
 ## library(stargazer)
 
 data13 %>% names() 
-data13 %>% .$RS %>% table() 
+data13 %>% .$RS %>% table() %>% 
 data13$RS <- 
   data13$RS %>% 
   recode(
