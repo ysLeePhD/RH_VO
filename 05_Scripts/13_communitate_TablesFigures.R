@@ -169,5 +169,50 @@ ggsave(filename = file.path(plotpath, "NWBMODE2.jpg"), plot = p4,
 
 ## Task 5-2. Summary statistics of four groups ---- 
 
+temp <- data13 %>% 
+  select(RS, HHVEHCNT2, WRKCOUNT, DRVRCNT, NUMCHILD, HOMEOWN2, home.den.pp, work.den.pp, R_AGE, 
+         DRIVER, EDUC03, EDUC04, OCCAT04, deliver01, deliver02, deliver03, deliver04) %>%
+  mutate(RS = as.factor(RS), 
+         HOMEOWN2 = as.integer(as.character(HOMEOWN2)), 
+         college = EDUC03 + EDUC04) %>%
+  select(-EDUC03, -EDUC04)
 
 
+temp2 <- list(
+  temp %>% filter(RS==0) %>% select(-RS, -HHVEHCNT2), 
+  temp %>% filter(RS==1) %>% select(-RS, -HHVEHCNT2), 
+  temp %>% filter(RS==2) %>% select(-RS, -HHVEHCNT2), 
+  temp %>% filter(RS==3) %>% select(-RS, -HHVEHCNT2)
+) 
+
+sumstat01 <- 
+  rbind(map_dbl(temp2[[1]], ~mean(.) %>% round(digits =3)), 
+      map_dbl(temp2[[2]], ~mean(.) %>% round(digits =3)), 
+      map_dbl(temp2[[3]], ~mean(.) %>% round(digits =3)), 
+      map_dbl(temp2[[4]], ~mean(.) %>% round(digits =3))
+  ) %>% 
+  t() %>% 
+  as.data.frame()
+
+sumstat01$varnames <- rownames(sumstat01)
+
+temp3 <- list(
+  temp %>% filter(RS==0) %>% select(HHVEHCNT2), 
+  temp %>% filter(RS==1) %>% select(HHVEHCNT2), 
+  temp %>% filter(RS==2) %>% select(HHVEHCNT2), 
+  temp %>% filter(RS==3) %>% select(HHVEHCNT2)
+) 
+
+sumstat02 <- 
+  rbind(map(temp3[[1]], table)[[1]]/nrow(temp3[[1]]), 
+     map(temp3[[2]], table)[[1]]/nrow(temp3[[2]]), 
+     map(temp3[[3]], table)[[1]]/nrow(temp3[[3]]), 
+     map(temp3[[4]], table)[[1]]/nrow(temp3[[4]])
+  ) %>% 
+  t() %>% 
+  round(digits = 3) %>% 
+  as.data.frame()
+
+sumstat02$varnames <- rownames(sumstat02)
+
+rbind(sumstat02, sumstat01)[, c(5, 1:4)] %>% write_csv(file.path(filepath, "11_Scratch/sumstat.csv"))
