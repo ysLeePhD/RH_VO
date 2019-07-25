@@ -227,6 +227,7 @@ rbind(sumstat02, sumstat01)[, c(5, 1:4)] %>% write_csv(file.path(filepath, "11_S
 ## Task 5-3. Compute probabilities of owning zero, 1, 2, and 3+ vehicles ---- 
 
 across01a <- read_csv(file.path(filepath, "15_Model/round03/round03_01/across01.csv"))
+across01a$HHVEHCNT2 %>% table() / nrow(across01a)
 
 across01b <- 
   across01a %>% 
@@ -304,6 +305,23 @@ temp <-
 names(temp) <- c("be_hat", "rh_hat", "vo_hat", "RH", "VO", "wt")
 across01c <- temp %>% as_tibble()
 
+# across01c %>%
+#   mutate(
+#     vo_prob0 = pnorm(-0.258 - vo_hat), 
+#     vo_prob1 = pnorm( 0.260 - vo_hat) - pnorm(-0.258 - vo_hat), 
+#     vo_prob2 = pnorm( 0.721 - vo_hat) - pnorm( 0.260 - vo_hat), 
+#     vo_prob3 = 1- pnorm(0.721 - vo_hat),     
+#     check = vo_prob0 + vo_prob1 + vo_prob2 + vo_prob3
+#   ) %>% 
+#   group_by(RH) %>%
+#   summarize(
+#     vo_prob0 = weighted.mean(vo_prob0, w = wt), 
+#     vo_prob1 = weighted.mean(vo_prob1, w = wt), 
+#     vo_prob2 = weighted.mean(vo_prob2, w = wt), 
+#     vo_prob3 = weighted.mean(vo_prob3, w = wt) 
+#   )
+
+
 rh_hat_means0 <- 
   across01c %>% 
   filter(RH==0) %>% 
@@ -311,12 +329,16 @@ rh_hat_means0 <-
   weighted.mean(w = across01c[across01c$RH==0, ]$wt) %>% #order-preserved
   rep(times = nrow(across01a))
 
+# pnorm(0.130 - 0.1923003)
+
 rh_hat_means1 <- 
   across01c %>% 
   filter(RH==1) %>% 
   .$rh_hat %>% 
   mean() %>%
   rep(times = nrow(across01a))
+
+# 1- pnorm(0.130 - 0.2886799)
 
 across01c$vo_hat0 <- cbind(be_hat, rh_hat_means0, vo_exp1) %*% vo_coeff
 across01c$vo_hat1 <- cbind(be_hat, rh_hat_means1, vo_exp1) %*% vo_coeff
@@ -334,19 +356,24 @@ across01c <-
     vo_prob2_rh1 = pnorm( 0.721 - vo_hat1) - pnorm( 0.260 - vo_hat1), 
     vo_prob3_rh1 = 1- pnorm(0.721 - vo_hat1), 
     check_rh1 = vo_prob0_rh1 + vo_prob1_rh1 + vo_prob2_rh1 + vo_prob3_rh1, 
-  )
+  ) 
 
-temp <- across01c %>% 
+temp <- 
+  across01c %>% 
   filter(RH==0) %>% 
   select(
     vo_prob0_rh0, vo_prob1_rh0, vo_prob2_rh0, vo_prob3_rh0, wt 
   ) 
 
-map_dbl(temp[1:4], weighted.mean(temp$wt))
+a <- map_dbl(temp[1:4], ~weighted.mean(x=., w = temp$wt))
 
-across01c %>% 
+b <- across01c %>% 
   filter(RH==1) %>% 
   select(
     vo_prob0_rh1, vo_prob1_rh1, vo_prob2_rh1, vo_prob3_rh1 
   ) %>% 
   map_dbl(mean)
+
+(b-a) %*% c(0, 1, 2, 3)
+
+
