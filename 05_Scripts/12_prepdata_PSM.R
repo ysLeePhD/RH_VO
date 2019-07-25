@@ -308,7 +308,7 @@ a <- merge(a, nhtsualist[, c("UACE10", "NAME10")], by="UACE10")
 a[order(-a$User, -a$pctUser), ]
 
 # write_rds(data13, file.path(filepath, "11_Scratch/data13.rds"))
-data13 <- read_rds(file.path(filepath, "11_Scratch/data13.rds"))
+# data13 <- read_rds(file.path(filepath, "11_Scratch/data13.rds"))
 
 ## Task 4-2. PSM run binary logit ----
 
@@ -318,14 +318,17 @@ data13 <- read_rds(file.path(filepath, "11_Scratch/data13.rds"))
 ## library(stargazer)
 
 data13 %>% names() 
-data13 %>% .$RS %>% table() %>% 
+data13 %>% .$RS %>% table() 
 data13$RS <- 
   data13$RS %>% 
   recode(
-    "0"=0L, "1"=1L, "2"=1L, "3"=1L,
+    "0"=0L, "1"=1L, #"2"=1L, "3"=1L,
     .default=NA_integer_, .missing = NA_integer_
   ) 
 data13 %>% .$RS %>% table() 
+data13 %>% .$RS %>% summary() 
+data13 <- data13 %>%
+  filter(is.na(RS) == FALSE) 
 
 psm <- glm(
   RS ~ 
@@ -434,10 +437,18 @@ match.data.within %>%
 
 # Task 4-2-2. across-UA matching ----  
 
+
+# https://cran.r-project.org/web/packages/MatchIt/MatchIt.pdf
+# https://r.iq.harvard.edu/docs/matchit/2.4-20/matchit.pdf
+# https://stackoverflow.com/questions/42965310/r-matchit-on-7-variables-with-different-seeds
+# https://stats.stackexchange.com/questions/86285/random-number-set-seedn-in-r
+# This seed number is really really critical! 
+set.seed(1234567890)
+
 match.UA50 <- 
   matchit(
     psm, method="nearest", ratio=1, replace=TRUE, 
-    distance="logit", reestimate = TRUE,  caliper=0.25, 
+    distance="logit", reestimate = TRUE,  caliper=0.25, # caliper in the stdv unit
     data=data13
   ) 
 
@@ -459,8 +470,8 @@ match.UA50.across$RS %>% table()
 match.UA50.across %>% filter(RS==0) %>% .$weights2 %>% table() 
 match.UA50.across %>% filter(RS==0) %>% .$weights2 %>% sum() 
 
-match.UA50.across %>% filter(RS==0) %>% .$weights3 %>% table() 
-match.UA50.across %>% filter(RS==0) %>% .$weights3 %>% sum() 
+# match.UA50.across %>% filter(RS==0) %>% .$weights3 %>% table() 
+# match.UA50.across %>% filter(RS==0) %>% .$weights3 %>% sum() 
 
 nhtsualist3 <- nhtsualist2
 nhtsualist3$UAno <- rownames(nhtsualist3) %>% as.integer()
