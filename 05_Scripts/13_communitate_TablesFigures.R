@@ -20,6 +20,7 @@ if (!require("tableone")) install.packages("tableone", repos = "http://cran.us.r
 if (!require("MatchIt")) install.packages("MatchIt", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 if (!require("optmatch")) install.packages("optmatch", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 
+if (!require("questionr")) install.packages("questionr", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 # detach(package:  )
 
 library(foreign)
@@ -38,6 +39,8 @@ library(tableone)
 library(MatchIt)
 library(optmatch)
 library(survival)
+
+library(questionr)
 
 options(stringsAsFactors = FALSE)
 # check the integer max value 
@@ -295,37 +298,55 @@ vo_coeff <- coeff01 %>%
   as.matrix() 
 
 vo_hat <- (vo_exp2 %*% vo_coeff) %>% as_tibble()
-summary(vo_hat$coeff)
 
-vo_hat$HHVEHCNT_hat <- 
-  ifelse(
-    vo_hat$coeff < -0.258, 
-    0L, 
-    ifelse(
-      vo_hat$coeff< 0.260, 
-      1L,
-      ifelse(
-        vo_hat$coeff < 0.721, 
-        2L, 
-        3L
-      )
-    )
-  )  
+temp <- 
+  cbind(be_hat, rh_hat, vo_hat, across01a$RS, across01a$HHVEHCNT2, across01a$weights2) 
+names(temp) <- c("be_hat", "rh_hat", "vo_hat", "RH", "VO", "wt")
+across01c <- temp %>% as_tibble()
 
-vo_hat$HHVEHCNT_hat %>% table()
+rh_hat_means0 <- 
+  across01c %>% 
+  filter(RH==0) %>% 
+  .$rh_hat %>% 
+  weighted.mean(w = across01c[across01c$RH==0, ]$wt) %>% #order-preserved
+  rep(times = nrow(across01a))
 
-vo_hat$RS <- across01a$RS
-vo_hat$HHVEHCNT2 <- across01a$HHVEHCNT2
-vo_hat$wt <- across01a$weights2
+rh_hat_means1 <- 
+  across01c %>% 
+  filter(RH==1) %>% 
+  .$rh_hat %>% 
+  mean() %>%
+  rep(times = nrow(across01a))
 
-if (!require("questionr")) install.packages("questionr", repos = "http://cran.us.r-project.org", dependencies = TRUE)
-library(questionr)
+across01c$vo_hat0 <- cbind(be_hat, rh_hat_means0, vo_exp1) %*% vo_coeff
+across01c$vo_hat1 <- cbind(be_hat, rh_hat_means1, vo_exp1) %*% vo_coeff
+  
+across01c <- 
+  across01c %>%
+  mutate(
+    vo_prob0_rh0 = pnorm(-0.258 - vo_hat0), 
+    vo_prob1_rh0 = pnorm( 0.260 - vo_hat0) - pnorm(-0.258 - vo_hat0), 
+    vo_prob2_rh0 = pnorm( 0.721 - vo_hat0) - pnorm( 0.260 - vo_hat0), 
+    vo_prob3_rh0 = 1- pnorm(0.721 - vo_hat0),     
+    check_rh0 = vo_prob0_rh0 + vo_prob1_rh0 + vo_prob2_rh0 + vo_prob3_rh0, 
+    vo_prob0_rh1 = pnorm(-0.258 - vo_hat1), 
+    vo_prob1_rh1 = pnorm( 0.260 - vo_hat1) - pnorm(-0.258 - vo_hat1), 
+    vo_prob2_rh1 = pnorm( 0.721 - vo_hat1) - pnorm( 0.260 - vo_hat1), 
+    vo_prob3_rh1 = 1- pnorm(0.721 - vo_hat1), 
+    check_rh1 = vo_prob0_rh1 + vo_prob1_rh1 + vo_prob2_rh1 + vo_prob3_rh1, 
+  )
 
-vo_hat0 <- vo_hat %>% filter(RS==0)          # model-predicted HHVEHCNT for non-users 
-table(vo_hat0$HHVEHCNT2)/nrow(vo_hat0) * 100 # observed HHVEHCNT for non-users 
-wtd.table(vo_hat0$HHVEHCNT_hat, weights = vo_hat0$wt)/sum(vo_hat0$wt) * 100
+temp <- across01c %>% 
+  filter(RH==0) %>% 
+  select(
+    vo_prob0_rh0, vo_prob1_rh0, vo_prob2_rh0, vo_prob3_rh0, wt 
+  ) 
 
-# model-predicted HHVEHCNT for users 
-vo_hat1 <- vo_hat %>% filter(RS==1) 
-table(vo_hat1$HHVEHCNT_hat)/nrow(vo_hat1) * 100 # model-predicted HHVEHCNT for users 
-table(vo_hat1$HHVEHCNT2)/nrow(vo_hat1) * 100    # observed HHVEHCNT for users 
+map_dbl(temp[1:4], weighted.mean(temp$wt))
+
+across01c %>% 
+  filter(RH==1) %>% 
+  select(
+    vo_prob0_rh1, vo_prob1_rh1, vo_prob2_rh1, vo_prob3_rh1 
+  ) %>% 
+  map_dbl(mean)
