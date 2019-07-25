@@ -167,6 +167,7 @@ ggsave(filename = file.path(plotpath, "NWBMODE2.jpg"), plot = p4,
 
 
 
+
 ## Task 5-2. Summary statistics of four groups ---- 
 
 temp <- data13 %>% 
@@ -216,3 +217,10 @@ sumstat02 <-
 sumstat02$varnames <- rownames(sumstat02)
 
 rbind(sumstat02, sumstat01)[, c(5, 1:4)] %>% write_csv(file.path(filepath, "11_Scratch/sumstat.csv"))
+
+
+
+
+## Task 5-3. Compute probabilities of owning zero, 1, 2, and 3+ vehicles ---- 
+
+
