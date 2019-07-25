@@ -444,7 +444,6 @@ match.data.within %>%
 # https://stats.stackexchange.com/questions/86285/random-number-set-seedn-in-r
 # This seed number is really really critical! 
 set.seed(1234567890)
-
 match.UA50 <- 
   matchit(
     psm, method="nearest", ratio=1, replace=TRUE, 

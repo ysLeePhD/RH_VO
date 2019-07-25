@@ -223,4 +223,109 @@ rbind(sumstat02, sumstat01)[, c(5, 1:4)] %>% write_csv(file.path(filepath, "11_S
 
 ## Task 5-3. Compute probabilities of owning zero, 1, 2, and 3+ vehicles ---- 
 
+across01a <- read_csv(file.path(filepath, "15_Model/round03/round03_01/across01.csv"))
 
+across01b <- 
+  across01a %>% 
+  select(
+    LIF_CYC02, LIF_CYC03, LIF_CYC04, LIF_CYC05, LIF_CYC06, 
+    HOMEOWN2, EDUC02, EDUC03, EDUC04, home.den.pp, RS, WRKCOUNT, 
+    HHFAMINC02, HHFAMINC03, HHFAMINC04, HHFAMINC05, HHFAMINC06, 
+    SPHONE01, SPHONE02, SPHONE03, SPHONE04, 
+    UA01, UA02, UA03, UA04, UA05, UA06, UA07, UA08, UA09, UA10, 
+    UA11,       UA13, UA14, UA15, UA16, UA17, UA18, UA19, UA20, 
+    UA21, UA22, UA23, UA24, UA25, UA26, UA27, UA28, UA29, UA30, 
+    UA31, UA32, UA33, UA34, UA35, UA36, UA37, UA38, UA39, UA40, 
+    UA41, UA42, UA43, UA44, UA45, UA46, UA47, UA48, UA49, UA50 
+  ) 
+
+be_exp <- across01b %>%
+  select(LIF_CYC02, LIF_CYC03, LIF_CYC04, LIF_CYC05, LIF_CYC06, 
+         HOMEOWN2, EDUC02, EDUC03, EDUC04, 
+         UA01, UA02, UA03, UA04, UA05, UA06, UA07, UA08, UA09, UA10, 
+         UA11,       UA13, UA14, UA15, UA16, UA17, UA18, UA19, UA20, 
+         UA21, UA22, UA23, UA24, UA25, UA26, UA27, UA28, UA29, UA30, 
+         UA31, UA32, UA33, UA34, UA35, UA36, UA37, UA38, UA39, UA40, 
+         UA41, UA42, UA43, UA44, UA45, UA46, UA47, UA48, UA49, UA50
+  ) %>%
+  as.matrix() 
+
+rh_exp <- across01b %>%
+  select(SPHONE01, SPHONE02, SPHONE03, SPHONE04, 
+         UA01, UA02, UA03, UA04, UA05, UA06, UA07, UA08, UA09, UA10, 
+         UA11,       UA13, UA14, UA15, UA16, UA17, UA18, UA19, UA20, 
+         UA21, UA22, UA23, UA24, UA25, UA26, UA27, UA28, UA29, UA30, 
+         UA31, UA32, UA33, UA34, UA35, UA36, UA37, UA38, UA39, UA40, 
+         UA41, UA42, UA43, UA44, UA45, UA46, UA47, UA48, UA49, UA50
+  ) %>%
+  as.matrix() 
+
+vo_exp1 <- across01b %>%
+  select(WRKCOUNT, HHFAMINC02, HHFAMINC03, HHFAMINC04, HHFAMINC05, HHFAMINC06,     
+         UA01, UA02, UA03, UA04, UA05, UA06, UA07, UA08, UA09, UA10, 
+         UA11,       UA13, UA14, UA15, UA16, UA17, UA18, UA19, UA20, 
+         UA21, UA22, UA23, UA24, UA25, UA26, UA27, UA28, UA29, UA30, 
+         UA31, UA32, UA33, UA34, UA35, UA36, UA37, UA38, UA39, UA40, 
+         UA41, UA42, UA43, UA44, UA45, UA46, UA47, UA48, UA49, UA50
+  ) %>%
+  as.matrix() 
+
+coeff01 <- read_csv(file.path(filepath, "15_Model/round03/round03_01/round03_01_coeff.csv"))
+
+be_coeff <- coeff01 %>%
+  filter(end=="YBE") %>%
+  select(coeff) %>%
+  as.matrix() 
+
+be_hat <- be_exp %*% be_coeff
+
+rh_coeff <- coeff01 %>%
+  filter(end=="YRH") %>%
+  select(coeff) %>%
+  as.matrix() 
+
+rh_hat <- rh_exp %*% rh_coeff
+
+vo_exp2 <- be_hat %>% 
+  cbind(rh_hat, vo_exp1) 
+
+vo_coeff <- coeff01 %>%
+  filter(end=="YVO") %>%
+  select(coeff) %>%
+  as.matrix() 
+
+vo_hat <- (vo_exp2 %*% vo_coeff) %>% as_tibble()
+summary(vo_hat$coeff)
+
+vo_hat$HHVEHCNT_hat <- 
+  ifelse(
+    vo_hat$coeff < -0.258, 
+    0L, 
+    ifelse(
+      vo_hat$coeff< 0.260, 
+      1L,
+      ifelse(
+        vo_hat$coeff < 0.721, 
+        2L, 
+        3L
+      )
+    )
+  )  
+
+vo_hat$HHVEHCNT_hat %>% table()
+
+vo_hat$RS <- across01a$RS
+vo_hat$HHVEHCNT2 <- across01a$HHVEHCNT2
+vo_hat$wt <- across01a$weights2
+
+if (!require("questionr")) install.packages("questionr", repos = "http://cran.us.r-project.org", dependencies = TRUE)
+library(questionr)
+
+vo_hat0 <- vo_hat %>% filter(RS==0)          # model-predicted HHVEHCNT for non-users 
+table(vo_hat0$HHVEHCNT2)/nrow(vo_hat0) * 100 # observed HHVEHCNT for non-users 
+wtd.table(vo_hat0$HHVEHCNT_hat, weights = vo_hat0$wt)/sum(vo_hat0$wt) * 100
+
+# model-predicted HHVEHCNT for users 
+vo_hat1 <- vo_hat %>% filter(RS==1) 
+table(vo_hat1$HHVEHCNT_hat)/nrow(vo_hat1) * 100 # model-predicted HHVEHCNT for users 
+table(vo_hat1$HHVEHCNT2)/nrow(vo_hat1) * 100    # observed HHVEHCNT for users 
