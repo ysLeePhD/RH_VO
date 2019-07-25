@@ -21,6 +21,8 @@ if (!require("MatchIt")) install.packages("MatchIt", repos = "http://cran.us.r-p
 if (!require("optmatch")) install.packages("optmatch", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 
 if (!require("questionr")) install.packages("questionr", repos = "http://cran.us.r-project.org", dependencies = TRUE)
+# if (!require("spatstat")) install.packages("spatstat", repos = "http://cran.us.r-project.org", dependencies = TRUE)
+
 # detach(package:  )
 
 library(foreign)
@@ -41,6 +43,7 @@ library(optmatch)
 library(survival)
 
 library(questionr)
+# library(spatstat)
 
 options(stringsAsFactors = FALSE)
 # check the integer max value 
@@ -358,22 +361,30 @@ across01c <-
     check_rh1 = vo_prob0_rh1 + vo_prob1_rh1 + vo_prob2_rh1 + vo_prob3_rh1, 
   ) 
 
-temp <- 
-  across01c %>% 
-  filter(RH==0) %>% 
-  select(
-    vo_prob0_rh0, vo_prob1_rh0, vo_prob2_rh0, vo_prob3_rh0, wt 
-  ) 
+# temp <- 
+#   across01c %>% 
+#   filter(RH==0) %>% 
+#   select(
+#     vo_prob0_rh0, vo_prob1_rh0, vo_prob2_rh0, vo_prob3_rh0, wt 
+#   ) 
 
-a <- map_dbl(temp[1:4], ~weighted.mean(x=., w = temp$wt))
+# a <- map_dbl(temp[1:4], ~weighted.mean(x=., w = temp$wt))
 
-b <- across01c %>% 
+b <- across01c %>% # predicted cars based on "current" user status 
   filter(RH==1) %>% 
   select(
     vo_prob0_rh1, vo_prob1_rh1, vo_prob2_rh1, vo_prob3_rh1 
   ) %>% 
   map_dbl(mean)
 
-(b-a) %*% c(0, 1, 2, 3)
+a <- across01c %>% # predicted cars based on "counterfactual" user status 
+  filter(RH==1) %>% 
+  select(
+    vo_prob0_rh0, vo_prob1_rh0, vo_prob2_rh0, vo_prob3_rh0 
+  ) %>% 
+  map_dbl(mean)
+
+(b-a) %*% c(0, 1, 2, 3) # reduction/ditching of one car per 1,000 occasional users 
+                        # less than once a week (1-3 times in the last 30 days) 
 
 
