@@ -322,7 +322,7 @@ data13 %>% .$RS %>% table()
 data13$RS <- 
   data13$RS %>% 
   recode(
-    "0"=0L, "1"=1L, #"2"=1L, "3"=1L,
+    "0"=0L, "1"=1L, "2"=1L, "3"=1L,
     .default=NA_integer_, .missing = NA_integer_
   ) 
 data13 %>% .$RS %>% table() 
