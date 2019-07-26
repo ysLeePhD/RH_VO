@@ -229,6 +229,8 @@ rbind(sumstat02, sumstat01)[, c(5, 1:4)] %>% write_csv(file.path(filepath, "11_S
 
 ## Task 5-3. Compute probabilities of owning zero, 1, 2, and 3+ vehicles ---- 
 
+### Task 5-3-1. For occasional users ----
+
 across01a <- read_csv(file.path(filepath, "15_Model/round03/round03_01/across01.csv"))
 across01a$HHVEHCNT2 %>% table() / nrow(across01a)
 
@@ -386,5 +388,168 @@ a <- across01c %>% # predicted cars based on "counterfactual" user status
 
 (b-a) %*% c(0, 1, 2, 3) # reduction/ditching of one car per 1,000 occasional users 
                         # less than once a week (1-3 times in the last 30 days) 
+
+
+
+### Task 5-3-2. For moderate users ----
+
+across02a <- read_csv(file.path(filepath, "15_Model/round03/round03_02/across02.csv"))
+across02a$HHVEHCNT2 %>% table() / nrow(across02a)
+
+across02b <- 
+  across02a %>% 
+  select(
+    LIF_CYC02, LIF_CYC03, LIF_CYC04, LIF_CYC05, LIF_CYC06, 
+    HOMEOWN2, EDUC02, EDUC03, EDUC04, home.den.pp, RS, WRKCOUNT, 
+    HHFAMINC02, HHFAMINC03, HHFAMINC04, HHFAMINC05, HHFAMINC06, 
+    work.den.pp, work.oldnbhd, 
+    UA01, UA02, UA03, UA04, UA05, UA06, UA07, UA08, UA09, UA10, 
+    UA11,       UA13, UA14, UA15, UA16, UA17, UA18, UA19, UA20, 
+    UA21, UA22, UA23, UA24, UA25, UA26, UA27, UA28, UA29, UA30, 
+    UA31, UA32, UA33, UA34, UA35, UA36, UA37, UA38, UA39, UA40, 
+    UA41, UA42, UA43, UA44, UA45, UA46, UA47, UA48, UA49, UA50 
+  ) 
+
+be_exp <- across02b %>%
+  select(LIF_CYC02, LIF_CYC03, LIF_CYC04, LIF_CYC05, LIF_CYC06, 
+         HOMEOWN2, EDUC02, EDUC03, EDUC04, 
+         UA01, UA02, UA03, UA04, UA05, UA06, UA07, UA08, UA09, UA10, 
+         UA11,       UA13, UA14, UA15, UA16, UA17, UA18, UA19, UA20, 
+         UA21, UA22, UA23, UA24, UA25, UA26, UA27, UA28, UA29, UA30, 
+         UA31, UA32, UA33, UA34, UA35, UA36, UA37, UA38, UA39, UA40, 
+         UA41, UA42, UA43, UA44, UA45, UA46, UA47, UA48, UA49, UA50
+  ) %>%
+  as.matrix() 
+
+rh_exp <- across02b %>%
+  select(work.den.pp, work.oldnbhd, 
+         UA01, UA02, UA03, UA04, UA05, UA06, UA07, UA08, UA09, UA10, 
+         UA11,       UA13, UA14, UA15, UA16, UA17, UA18, UA19, UA20, 
+         UA21, UA22, UA23, UA24, UA25, UA26, UA27, UA28, UA29, UA30, 
+         UA31, UA32, UA33, UA34, UA35, UA36, UA37, UA38, UA39, UA40, 
+         UA41, UA42, UA43, UA44, UA45, UA46, UA47, UA48, UA49, UA50
+  ) %>%
+  as.matrix() 
+
+vo_exp1 <- across02b %>%
+  select(WRKCOUNT, HHFAMINC02, HHFAMINC03, HHFAMINC04, HHFAMINC05, HHFAMINC06,     
+         UA01, UA02, UA03, UA04, UA05, UA06, UA07, UA08, UA09, UA10, 
+         UA11,       UA13, UA14, UA15, UA16, UA17, UA18, UA19, UA20, 
+         UA21, UA22, UA23, UA24, UA25, UA26, UA27, UA28, UA29, UA30, 
+         UA31, UA32, UA33, UA34, UA35, UA36, UA37, UA38, UA39, UA40, 
+         UA41, UA42, UA43, UA44, UA45, UA46, UA47, UA48, UA49, UA50
+  ) %>%
+  as.matrix() 
+
+coeff02 <- read_csv(file.path(filepath, "15_Model/round03/round03_02/round03_02_coeff.csv"))
+
+be_coeff <- coeff01 %>%
+  filter(end=="YBE") %>%
+  select(coeff) %>%
+  as.matrix() 
+
+be_hat <- be_exp %*% be_coeff
+
+rh_coeff <- coeff01 %>%
+  filter(end=="YRH") %>%
+  select(coeff) %>%
+  as.matrix() 
+
+rh_hat <- rh_exp %*% rh_coeff
+
+vo_exp2 <- be_hat %>% 
+  cbind(rh_hat, vo_exp1) 
+
+vo_coeff <- coeff01 %>%
+  filter(end=="YVO") %>%
+  select(coeff) %>%
+  as.matrix() 
+
+vo_hat <- (vo_exp2 %*% vo_coeff) %>% as_tibble()
+
+temp <- 
+  cbind(be_hat, rh_hat, vo_hat, across01a$RS, across01a$HHVEHCNT2, across01a$weights2) 
+names(temp) <- c("be_hat", "rh_hat", "vo_hat", "RH", "VO", "wt")
+across01c <- temp %>% as_tibble()
+
+# across01c %>%
+#   mutate(
+#     vo_prob0 = pnorm(-0.258 - vo_hat), 
+#     vo_prob1 = pnorm( 0.260 - vo_hat) - pnorm(-0.258 - vo_hat), 
+#     vo_prob2 = pnorm( 0.721 - vo_hat) - pnorm( 0.260 - vo_hat), 
+#     vo_prob3 = 1- pnorm(0.721 - vo_hat),     
+#     check = vo_prob0 + vo_prob1 + vo_prob2 + vo_prob3
+#   ) %>% 
+#   group_by(RH) %>%
+#   summarize(
+#     vo_prob0 = weighted.mean(vo_prob0, w = wt), 
+#     vo_prob1 = weighted.mean(vo_prob1, w = wt), 
+#     vo_prob2 = weighted.mean(vo_prob2, w = wt), 
+#     vo_prob3 = weighted.mean(vo_prob3, w = wt) 
+#   )
+
+
+rh_hat_means0 <- 
+  across01c %>% 
+  filter(RH==0) %>% 
+  .$rh_hat %>% 
+  weighted.mean(w = across01c[across01c$RH==0, ]$wt) %>% #order-preserved
+  rep(times = nrow(across01a))
+
+# pnorm(0.130 - 0.1923003)
+
+rh_hat_means1 <- 
+  across01c %>% 
+  filter(RH==1) %>% 
+  .$rh_hat %>% 
+  mean() %>%
+  rep(times = nrow(across01a))
+
+# 1- pnorm(0.130 - 0.2886799)
+
+across01c$vo_hat0 <- cbind(be_hat, rh_hat_means0, vo_exp1) %*% vo_coeff
+across01c$vo_hat1 <- cbind(be_hat, rh_hat_means1, vo_exp1) %*% vo_coeff
+
+across01c <- 
+  across01c %>%
+  mutate(
+    vo_prob0_rh0 = pnorm(-0.258 - vo_hat0), 
+    vo_prob1_rh0 = pnorm( 0.260 - vo_hat0) - pnorm(-0.258 - vo_hat0), 
+    vo_prob2_rh0 = pnorm( 0.721 - vo_hat0) - pnorm( 0.260 - vo_hat0), 
+    vo_prob3_rh0 = 1- pnorm(0.721 - vo_hat0),     
+    check_rh0 = vo_prob0_rh0 + vo_prob1_rh0 + vo_prob2_rh0 + vo_prob3_rh0, 
+    vo_prob0_rh1 = pnorm(-0.258 - vo_hat1), 
+    vo_prob1_rh1 = pnorm( 0.260 - vo_hat1) - pnorm(-0.258 - vo_hat1), 
+    vo_prob2_rh1 = pnorm( 0.721 - vo_hat1) - pnorm( 0.260 - vo_hat1), 
+    vo_prob3_rh1 = 1- pnorm(0.721 - vo_hat1), 
+    check_rh1 = vo_prob0_rh1 + vo_prob1_rh1 + vo_prob2_rh1 + vo_prob3_rh1, 
+  ) 
+
+# temp <- 
+#   across01c %>% 
+#   filter(RH==0) %>% 
+#   select(
+#     vo_prob0_rh0, vo_prob1_rh0, vo_prob2_rh0, vo_prob3_rh0, wt 
+#   ) 
+
+# a <- map_dbl(temp[1:4], ~weighted.mean(x=., w = temp$wt))
+
+b <- across01c %>% # predicted cars based on "current" user status 
+  filter(RH==1) %>% 
+  select(
+    vo_prob0_rh1, vo_prob1_rh1, vo_prob2_rh1, vo_prob3_rh1 
+  ) %>% 
+  map_dbl(mean)
+
+a <- across01c %>% # predicted cars based on "counterfactual" user status 
+  filter(RH==1) %>% 
+  select(
+    vo_prob0_rh0, vo_prob1_rh0, vo_prob2_rh0, vo_prob3_rh0 
+  ) %>% 
+  map_dbl(mean)
+
+(b-a) %*% c(0, 1, 2, 3) # reduction/ditching of one car per 1,000 occasional users 
+# less than once a week (1-3 times in the last 30 days) 
+
 
 
