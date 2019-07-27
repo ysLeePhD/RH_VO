@@ -317,20 +317,40 @@ a[order(-a$User, -a$pctUser), ]
 ## install.packages("stargazer")
 ## library(stargazer)
 
-# data13 <- read_rds(file.path(filepath, "11_Scratch/data13.rds"))
-data13 %>% names() 
-data13 %>% .$RS %>% table() 
+data13 <- read_rds(file.path(filepath, "11_Scratch/data13.rds"))
+# data13 %>% names() 
+# data13 %>% .$RS %>% table() 
 
-data13$RS <- 
-  data13$RS %>% 
+data13$RS <- data13$RS %>% 
   recode(
     "0"=0L, "1"=1L, #"2"=1L, "3"=1L,
     .default=NA_integer_, .missing = NA_integer_
   ) 
-data13 %>% .$RS %>% table() 
-data13 %>% .$RS %>% summary() 
+# data13 %>% .$RS %>% table() 
+# data13 %>% .$RS %>% summary() 
 data13 <- data13 %>%
   filter(is.na(RS) == FALSE) 
+
+# data13 %>% names()
+b <- ncol(data13) - 53
+xvars <- data13 %>% names() %>% .[c(3:b)]
+xvars2 <- c(xvars, "distance")
+
+summary.unmatched <-CreateTableOne(vars=xvars, strata="RS", data=data13, test=TRUE)
+# print(summary.unmatched, smd=TRUE)
+# ExtractSmd(summary.unmatched)
+summary.unmatched.df <- print(summary.unmatched, test=TRUE, smd = TRUE) %>% as.data.frame() 
+summary.unmatched.df$varnames <- rownames(summary.unmatched.df)
+
+# write_csv(x = summary.unmatched.df,
+#           path = file.path(filepath, "15_Model/round03/round03_01/across01_before_matching.csv"))
+# write_csv(x = summary.unmatched.df,
+#           path = file.path(filepath, "15_Model/round03/round03_02/across02_before_matching.csv"))
+# write_csv(x = summary.unmatched.df,
+#           path = file.path(filepath, "15_Model/round03/round03_03/across03_before_matching.csv"))
+
+
+
 
 psm <- glm(
   RS ~ 
@@ -361,25 +381,16 @@ psm <- glm(
   data=data13
 )
 summary(psm)
+
 ## stargazer(psm, type="text")
-
-data13 %>% names()
-b <- ncol(data13) - 53
-xvars <- data13 %>% names() %>% .[c(3:b)]
-xvars2 <- c(xvars, "distance")
-
-summary.unmatched <-CreateTableOne(vars=xvars, strata="RS", data=data13, test=TRUE)
-print(summary.unmatched, smd=TRUE)
-## ExtractSmd(summary.unmatched)
-
 ## How to deal with perfect separation in logistic regression?
 ## https://stats.stackexchange.com/questions/11109/how-to-deal-with-perfect-separation-in-logistic-regression
 ## https://stats.stackexchange.com/questions/40876/what-is-the-difference-between-a-link-function-and-a-canonical-link-function
 ## https://cran.r-project.org/web/packages/logistf/logistf.pdf
 ## install.packages("logistf")
 ## library(logistf)
-
 ## https://cran.r-project.org/web/packages/MatchIt/vignettes/matchit.pdf
+
 
 
 ### Task 4-2-1. within-UA matching ----  
