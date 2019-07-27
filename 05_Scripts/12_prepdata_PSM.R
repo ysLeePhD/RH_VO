@@ -307,7 +307,7 @@ a$pctNonUser <- round(a$NonUser/a$Raw*100, 1)
 a <- merge(a, nhtsualist[, c("UACE10", "NAME10")], by="UACE10")
 a[order(-a$User, -a$pctUser), ]
 
-# write_rds(data13, file.path(filepath, "11_Scratch/data13.rds"))
+# write_rds(data13, file.path(filepath, "11_Scratch/data13.rds")) # before dropping 
 # data13 <- read_rds(file.path(filepath, "11_Scratch/data13.rds"))
 
 ## Task 4-2. PSM run binary logit ----
@@ -317,12 +317,14 @@ a[order(-a$User, -a$pctUser), ]
 ## install.packages("stargazer")
 ## library(stargazer)
 
+# data13 <- read_rds(file.path(filepath, "11_Scratch/data13.rds"))
 data13 %>% names() 
 data13 %>% .$RS %>% table() 
+
 data13$RS <- 
   data13$RS %>% 
   recode(
-    "0"=0L, "1"=1L, "2"=1L, "3"=1L,
+    "0"=0L, "1"=1L, #"2"=1L, "3"=1L,
     .default=NA_integer_, .missing = NA_integer_
   ) 
 data13 %>% .$RS %>% table() 
@@ -380,7 +382,7 @@ print(summary.unmatched, smd=TRUE)
 ## https://cran.r-project.org/web/packages/MatchIt/vignettes/matchit.pdf
 
 
-# Task 4-2-1. within-UA matching ----  
+### Task 4-2-1. within-UA matching ----  
 
 mymatching <- function(i){
   tryCatch(
@@ -435,7 +437,7 @@ match.data.within %>%
   left_join(nhtsualist2, by = "UACE10")
 
 
-# Task 4-2-2. across-UA matching ----  
+### Task 4-2-2. across-UA matching ----  
 
 
 # https://cran.r-project.org/web/packages/MatchIt/MatchIt.pdf
@@ -443,7 +445,11 @@ match.data.within %>%
 # https://stackoverflow.com/questions/42965310/r-matchit-on-7-variables-with-different-seeds
 # https://stats.stackexchange.com/questions/86285/random-number-set-seedn-in-r
 # This seed number is really really critical! 
-set.seed(1234567890)
+
+a <- round(rnorm(1)*1000000000, digits = 0)
+print(a) 
+set.seed(a) # in case, -896573733 on 7/27/2019 12:55PM for 0 vs. 1
+
 match.UA50 <- 
   matchit(
     psm, method="nearest", ratio=1, replace=TRUE, 
@@ -475,7 +481,6 @@ match.UA50.across %>% filter(RS==0) %>% .$weights2 %>% sum()
 nhtsualist3 <- nhtsualist2
 nhtsualist3$UAno <- rownames(nhtsualist3) %>% as.integer()
 
-
 match.UA50.across %>% 
   group_by(UACE10, RS) %>% 
   summarize(n = n()) %>% 
@@ -486,64 +491,52 @@ match.UA50.across %>%
   arrange(UAno) %>% #by default ascending order 
   View()
 
-match.UA50.across %>% write_rds(file.path(filepath, "11_Scratch/match_UA50_across_all.rds"))
+# match.UA50.across %>% write_rds(file.path(filepath, "11_Scratch/match_UA50_across_all.rds"))
 # match.UA50.across <- read_rds(file.path(filepath, "11_Scratch/match_UA50_across_all.rds"))
 
 
-# Task 4-3. before/after matching comparison ----  
+## Task 4-3. before/after matching comparison ----  
 
-if (!require("plotrix")) install.packages("plotrix", repos = "http://cran.us.r-project.org", dependencies = TRUE)
-library(plotrix)
 
-temp <- match.UA50.across[, c(1:78, 131:134)]
-temp$LNVEH    <- log(temp$HHVEHCNT+1) 
-## weighted.hist(temp[temp$RS==1, ]$LNVEH, temp[temp$RS==1, ]$weights3)
-## weighted.hist(temp[temp$RS==0, ]$LNVEH, temp[temp$RS==0, ]$weights3)
+### Task 4-3-1. tables: before/after matching comparison ----  
 
-hist(temp$HHVEHCNT)
-summary(temp$weights)
-summary(temp$weights2)
-summary(temp$weights3)
-summary(temp$distance)
-
-nrow(temp[temp$RS==1, ])
-sum(temp[temp$RS==1, ]$weights2)
-nrow(temp[temp$RS==0, ])
-sum(temp[temp$RS==0, ]$weights2)
+# temp <- read_csv(file.path(filepath, "15_Model/round03/round03_01/across01.csv"))
+# temp <- read_csv(file.path(filepath, "15_Model/round03/round03_02/across02.csv"))
+# temp <- read_csv(file.path(filepath, "15_Model/round03/round03_03/across03.csv"))
+temp$X1 <- NULL
 
 ## Created weighted data object: https://rpubs.com/kaz_yos/matching-weights
-
+if (!require("plotrix")) install.packages("plotrix", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 if (!require("grid")) install.packages("grid", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 if (!require("Matrix")) install.packages("Matrix", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 if (!require("survey")) install.packages("survey", repos = "http://cran.us.r-project.org", dependencies = TRUE)
+
+library(plotrix)
 library(grid) 
 library(Matrix)
 library(survey)
 
-names(temp)[map_chr(temp, class) == "numeric"]
-
-temp$HHVEHCNT2 <- as.numeric(as.character(temp$HHVEHCNT2))
-temp$PTUSED2   <- as.numeric(as.character(temp$PTUSED2))
-temp$NWBMODE2  <- as.numeric(as.character(temp$NWBMODE2))
-temp$HOMEOWN2  <- as.numeric(as.character(temp$HOMEOWN2))
-temp$R_SEX     <- as.numeric(as.character(temp$R_SEX))
-temp$R_HISP    <- as.numeric(as.character(temp$R_HISP))
-
 match.data.all.wt <- svydesign(ids = ~ 1, data = temp, weights = ~ weights2)
-
 ## Weighted table with tableone
 summary.test <- svyCreateTableOne(vars = xvars, strata ="RS", data = match.data.all.wt)
-print(summary.test, test=TRUE, smd = TRUE)
-# write.csv(print(summary.test, test=TRUE, smd = TRUE), file="M:/Uber_NHTS/31_Conference/AfterMatching03.csv")
-## ExtractSmd(summary.test)
+summary.test.df <- print(summary.test, test=TRUE, smd = TRUE) %>% as.data.frame() 
+summary.test.df$varnames <- rownames(x)
 
+# write_csv(x = summary.test.df, 
+#           path = file.path(filepath, "15_Model/round03/round03_01/across01_after_matching.csv"))
+# write_csv(x = summary.test.df, 
+#           path = file.path(filepath, "15_Model/round03/round03_02/across02_after_matching.csv"))
+# write_csv(x = summary.test.df, 
+#           path = file.path(filepath, "15_Model/round03/round03_03/across03_after_matching.csv"))
+
+## ExtractSmd(summary.test)
 ## plot(pooled.match.UA, type="jitter")  ## matchit object, the last UA only after the for loop
 ## plot(pooled.match.UA, type="hist")    ## matchit object, the last UA only after the for loop
 ## par(mfrow=c(1,1))
 
 
+### Task 4-3-2. SMD plots: before/after matching comparison ----  
 
-## Generate SMD plots before/after matching
 ## https://rpubs.com/kaz_yos/matching-weights
 ## matching.cov.list0 <- c("# RIDESHARE", "# HHVEHCNT", "O HHVENCHT", "O PT", "O Walk/Bike", "Yes RIDESHARE")
 
