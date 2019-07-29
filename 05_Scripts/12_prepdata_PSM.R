@@ -516,6 +516,13 @@ match.UA50.across %>%
 # temp <- read_csv(file.path(filepath, "15_Model/round03/round03_03/across03.csv"))
 temp$X1 <- NULL
 
+temp %>%
+  group_by(RS, HHVEHCNT2) %>%
+  summarize(
+    n = sum(weights2) 
+  )
+
+
 ## Created weighted data object: https://rpubs.com/kaz_yos/matching-weights
 if (!require("plotrix")) install.packages("plotrix", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 if (!require("grid")) install.packages("grid", repos = "http://cran.us.r-project.org", dependencies = TRUE)
