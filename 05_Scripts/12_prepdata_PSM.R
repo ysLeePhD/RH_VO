@@ -323,7 +323,7 @@ data13 <- read_rds(file.path(filepath, "11_Scratch/data13.rds"))
 
 data13$RS <- data13$RS %>% 
   recode(
-    "0"=0L, "2"=1L, #"1"=1L, #"3"=1L,
+    "0"=0L, "3"=1L,#"2"=1L, #"1"=1L, 
     .default=NA_integer_, .missing = NA_integer_
   ) 
 # data13 %>% .$RS %>% table() 
@@ -486,7 +486,7 @@ t2-t1
 # sd(match.UA50$distance)/4 # caliper
 # sum(psm$fitted.values != match.UA50$distance) # distance is in fact logit/probit probability 
 
-# check optimal matching performance (begin) -------
+# [digression] check optimal matching performance (begin) -------
 
 test00 <- match.UA50$match.matrix %>% as.data.frame()
 test00$treated <- rownames(test00)
@@ -557,7 +557,7 @@ pairs01 %>%
   filter(within_caliper != TRUE)
 # 187 treated cases out of 3,644 or 5.13% no equivalent within the caliper
 
-# check optimal matching performance (end) -------
+# [digression] check optimal matching performance (end) -------
 
 match.UA50.across <-  
   match.data(match.UA50) %>% 
@@ -574,7 +574,10 @@ match.UA50.across %>%
   left_join(nhtsualist3, by = "UACE10") %>%
   #filter(n>67.04) %>%
   arrange(UAno) %>% #by default ascending order 
-  View()
+  #View() %>%
+  write_csv(file.path(filepath, "15_Model/round04/CountbyUA01.csv"))
+  write_csv(file.path(filepath, "15_Model/round04/CountbyUA02.csv"))
+  write_csv(file.path(filepath, "15_Model/round04/CountbyUA03.csv"))
 
 # match.UA50.across %>% write_rds(file.path(filepath, "11_Scratch/match_UA50_across_all.rds"))
 # match.UA50.across <- read_rds(file.path(filepath, "11_Scratch/match_UA50_across_all.rds"))
@@ -812,13 +815,11 @@ match.UA50.across %>% names()
 #   write.csv(file.path(filepath, "15_Model/round03_03/across03.csv"))
 # write.csv(file.path(filepath, "15_Model/round03_04/across_all.csv"))
 
-# match.UA50.across[, c(31, 7, 12, 8, 11, 13:30, 32:99, 102:151)] %>% 
-#   write.csv(file.path(filepath, "15_Model/round04/across01.csv"))
-
-match.UA50.across[, c(31, 7, 12, 8, 11, 13:30, 32:99, 102:151)] %>% 
-  write.csv(file.path(filepath, "15_Model/round04/across02.csv"))
-
-match.UA50.across[, c(31, 7, 12, 8, 11, 13:30, 32:99, 102:151)] %>% 
+match.UA50.across[, c(31, 7, 12, 8, 11, 13:30, 32:99, 102:151)] %>%
+  write.csv(file.path(filepath, "15_Model/round04/across01.csv"))
+match.UA50.across[, c(31, 7, 12, 8, 11, 13:30, 32:99, 102:151)] %>% #names()
+  write.csv(file.path(filepath, "15_Model/round04/across02.csv")) # UA=23 missing
+match.UA50.across[, c(31, 7, 12, 8, 11, 13:30, 32:99, 102:151)] %>%
   write.csv(file.path(filepath, "15_Model/round04/across03.csv"))
 
 
