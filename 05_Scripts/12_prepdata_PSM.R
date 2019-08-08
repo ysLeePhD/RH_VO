@@ -323,7 +323,7 @@ data13 <- read_rds(file.path(filepath, "11_Scratch/data13.rds"))
 
 data13$RS <- data13$RS %>% 
   recode(
-    "0"=0L, "1"=1L, #"2"=1L, "3"=1L,
+    "0"=0L, "2"=1L, #"1"=1L, #"3"=1L,
     .default=NA_integer_, .missing = NA_integer_
   ) 
 # data13 %>% .$RS %>% table() 
@@ -383,7 +383,8 @@ summary(psm$fitted.values)
 # nrow(data13)
 # hist(psm$fitted.values[data13$RS == 0])
 # hist(psm$fitted.values[data13$RS == 1])
-# sd(psm$fitted.values)/4
+quarter.stdv <- sd(psm$fitted.values)/4
+quarter.stdv
 # data13$prob <- psm$fitted.values
 # data13$prob <- NULL
 rownames(data13) <- paste0(data13$HOUSEID, data13$PERSONID)
@@ -463,16 +464,19 @@ match.data.within %>%
 # https://stats.stackexchange.com/questions/86285/random-number-set-seedn-in-r
 # This seed number is really really critical! 
 
-a <- round(rnorm(1)*1000000000, digits = 0)
-print(a) 
-set.seed(a) # in case, -896573733 on 7/27/2019 12:55PM for 0 vs. 1
+options("optmatch_max_problem_size" = Inf)
+# ?optmatch::fullmatch
 
-input_ratio <- 10 
+# a <- round(rnorm(1)*1000000000, digits = 0)
+# print(a) 
+# set.seed(a)  
+
+input_ratio <- 1 
 
 t1 <- Sys.time()
 match.UA50 <- 
   matchit(
-    psm, method="nearest", ratio=input_ratio, replace=TRUE, 
+    psm, method="optimal", ratio=input_ratio, replace=TRUE, # with optimal, replace=FALSE
     distance="logit", reestimate = TRUE,  caliper=0.25, # caliper in the stdv unit
     data=data13
   ) 
@@ -482,17 +486,23 @@ t2-t1
 # sd(match.UA50$distance)/4 # caliper
 # sum(psm$fitted.values != match.UA50$distance) # distance is in fact logit/probit probability 
 
+# check optimal matching performance (begin) -------
+
 test00 <- match.UA50$match.matrix %>% as.data.frame()
 test00$treated <- rownames(test00)
-names(test00) <- c("matched.01", "matched.02", "matched.03", "matched.04", "matched.05", "treated")
-test01 <- as_tibble(test00[c(6, 1:5)])
+head(test00)
+names(test00) <- 
+  c(#"matched.01", "matched.02", "matched.03", "matched.04", "matched.05", 
+    "control", "treated"
+    )
+test01 <- as_tibble(test00[c(2, 1)])
 
 test02 <- vector("list")
 for (i in 1:nrow(test01)){
   test02[[i]] <- 
     data.frame(
     treated = rep(test01[[i, 1]], input_ratio), 
-    control = test01[i, c(2:6)] %>% as.character()
+    control = test01[i, 2] %>% as.character()
     )
 } 
 
@@ -504,42 +514,54 @@ pairs01 <-
   filter(is.na(control) == FALSE) %>%
   group_by(treated, control)
 
-pairs02 <- 
-  test02 %>% 
-  bind_rows() %>% 
-  as_tibble() %>% 
-  arrange(treated, control) %>% 
+pairs02 <-
+  test02 %>%
+  bind_rows() %>%
+  as_tibble() %>%
+  arrange(treated, control) %>%
   filter(is.na(control) == FALSE) %>%
   group_by(treated, control)
 
 n1  <- pairs01 %>% nrow()
-n12 <- pairs01 %>% semi_join(pairs02) %>% nrow()
+n12 <- pairs01 %>% anti_join(pairs02) %>% nrow()
+n1
+n12 
 n12/n1
 
 n2  <- pairs02 %>% nrow()
-n21 <- pairs02 %>% semi_join(pairs01) %>% nrow()
+n21 <- pairs02 %>% anti_join(pairs01) %>% nrow()
+n2
+n21
 n21/n2
 
-b <- match.data(match.UA50) %>%
-  filter(RS==0) %>%
-  .$weights %>% 
-  min() 
-
-match.UA50.across <- # 6,704 cases from 50 UAs
-  match.data(match.UA50) %>% 
-  as_tibble() %>% 
+test10 <- 
+  data13 %>%
+  select(HOUSEID, PERSONID, prob) %>%
   mutate(
-    weights2 = round(ifelse(RS==0, weights/b, weights), digits = 0), 
-    weights3 = ifelse(RS==0, weights2*distance/(1-distance), 1) 
-  )  
+    id = paste0(HOUSEID, PERSONID)
+  ) %>%
+  select(id, prob)
 
-match.UA50.across$RS %>% table()
+pairs01 %>%
+  left_join(test10, by = c("treated" = "id")) %>%
+  ungroup() %>%
+  mutate(treated_prob = prob) %>%
+  select(-prob) %>%
+  left_join(test10, by = c("control" = "id")) %>%
+  mutate(
+    control_prob = prob, 
+    diff_prob = abs(treated_prob - control_prob), 
+    within_caliper = diff_prob < quarter.stdv
+  ) %>%
+  select(-prob) %>%
+  filter(within_caliper != TRUE)
+# 187 treated cases out of 3,644 or 5.13% no equivalent within the caliper
 
-match.UA50.across %>% filter(RS==0) %>% .$weights2 %>% table() 
-match.UA50.across %>% filter(RS==0) %>% .$weights2 %>% sum() 
+# check optimal matching performance (end) -------
 
-# match.UA50.across %>% filter(RS==0) %>% .$weights3 %>% table() 
-# match.UA50.across %>% filter(RS==0) %>% .$weights3 %>% sum() 
+match.UA50.across <-  
+  match.data(match.UA50) %>% 
+  as_tibble() 
 
 nhtsualist3 <- nhtsualist2
 nhtsualist3$UAno <- rownames(nhtsualist3) %>% as.integer()
@@ -566,13 +588,13 @@ match.UA50.across %>%
 # temp <- read_csv(file.path(filepath, "15_Model/round03/round03_01/across01.csv"))
 # temp <- read_csv(file.path(filepath, "15_Model/round03/round03_02/across02.csv"))
 # temp <- read_csv(file.path(filepath, "15_Model/round03/round03_03/across03.csv"))
-temp$X1 <- NULL
-
-temp %>%
-  group_by(RS, HHVEHCNT2) %>%
-  summarize(
-    n = sum(weights2) 
-  )
+# temp$X1 <- NULL
+# 
+# temp %>%
+#   group_by(RS, HHVEHCNT2) %>%
+#   summarize(
+#     n = sum(weights2) 
+#   )
 
 
 ## Created weighted data object: https://rpubs.com/kaz_yos/matching-weights
@@ -586,11 +608,19 @@ library(grid)
 library(Matrix)
 library(survey)
 
-match.data.all.wt <- svydesign(ids = ~ 1, data = temp, weights = ~ weights2)
-## Weighted table with tableone
-summary.test <- svyCreateTableOne(vars = xvars, strata ="RS", data = match.data.all.wt)
-summary.test.df <- print(summary.test, test=TRUE, smd = TRUE) %>% as.data.frame() 
-summary.test.df$varnames <- rownames(x)
+# match.data.all.wt <- svydesign(ids = ~ 1, data = temp, weights = ~ weights2)
+# ## Weighted table with tableone
+# summary.test <- svyCreateTableOne(vars = xvars, strata ="RS", data = match.data.all.wt)
+# summary.test.df <- print(summary.test, test=TRUE, smd = TRUE) %>% as.data.frame() 
+# summary.test.df$varnames <- rownames(x)
+
+temp <- match.UA50.across
+  
+summary.matched <-CreateTableOne(vars=xvars, strata="RS", data=temp, test=TRUE)
+# print(summary.unmatched, smd=TRUE)
+# ExtractSmd(summary.unmatched)
+summary.matched.df <- print(summary.matched, test=TRUE, smd = TRUE) %>% as.data.frame() 
+summary.matched.df$varnames <- rownames(summary.matched.df)
 
 # write_csv(x = summary.test.df, 
 #           path = file.path(filepath, "15_Model/round03/round03_01/across01_after_matching.csv"))
@@ -772,7 +802,7 @@ match.UA50.across %>% names()
 # for matching by frequency category (1, 2, and 3)
 # match.UA50.across[, c(5, 8, 6:7)] %>% map(table)
 # for all matching (regardless of ridehailnig frequency)  
-match.UA50.across[, c(4, 6, 9, 10)] %>% map(hist)
+# match.UA50.across[, c(4, 6, 9, 10)] %>% map(hist)
 
 
 # match.UA50.across[, c(27, 5, 8, 6:7, 9:26, 28:96, 98:147, 151)] %>% 
@@ -781,12 +811,15 @@ match.UA50.across[, c(4, 6, 9, 10)] %>% map(hist)
 #   write.csv(file.path(filepath, "15_Model/round03_02/across02.csv"))
 # match.UA50.across[, c(27, 5, 8, 6:7, 9:26, 28:96, 98:116, 118:147, 151)] %>%  
 #   write.csv(file.path(filepath, "15_Model/round03_03/across03.csv"))
-match.UA50.across[, c(31, 6, 4, 9:10, 13:30, 32:100, 102:151, 155)] %>% 
-  write.csv(file.path(filepath, "15_Model/round03_04/across_all.csv"))
+# write.csv(file.path(filepath, "15_Model/round03_04/across_all.csv"))
+
+match.UA50.across[, c(31, 7, 12, 8, 11, 13:30, 32:99, 102:151)] %>% 
+  write.csv(file.path(filepath, "15_Model/round04/across01.csv"))
+
 
 
 # varname.long <- match.UA50.across[, c(27, 5, 8, 6:7, 9:26, 28:96, 98:147, 151)] %>% names() 
-varname.long <- match.UA50.across[, c(31, 6, 4, 9:10, 13:30, 32:100, 102:151, 155)] %>% names 
+varname.long <- match.UA50.across[, c(31, 7, 12, 8, 11, 13:30, 32:99, 102:151)] %>% names 
 
 varname.short1 <- c("ybe", "yvo",  "yrh",  "ypt",  "ywb",   
                    "x1",  "x2",  "x3",  "x4",  "x5",  "x6",  "x7",  "x8",  "x9",  "x10", 
