@@ -615,7 +615,6 @@ match.UA50.across %>%
 # summary.test.df$varnames <- rownames(x)
 
 temp <- match.UA50.across
-  
 summary.matched <-CreateTableOne(vars=xvars, strata="RS", data=temp, test=TRUE)
 # print(summary.unmatched, smd=TRUE)
 # ExtractSmd(summary.unmatched)
