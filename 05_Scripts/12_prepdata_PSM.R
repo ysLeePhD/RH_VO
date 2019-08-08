@@ -476,7 +476,7 @@ input_ratio <- 1
 t1 <- Sys.time()
 match.UA50 <- 
   matchit(
-    psm, method="optimal", ratio=input_ratio, replace=TRUE, # with optimal, replace=FALSE
+    psm, method="optimal", ratio=input_ratio, replace=TRUE, # in fact with optimal, replace = FALSE
     distance="logit", reestimate = TRUE,  caliper=0.25, # caliper in the stdv unit
     data=data13
   ) 
@@ -598,15 +598,15 @@ match.UA50.across %>%
 
 
 ## Created weighted data object: https://rpubs.com/kaz_yos/matching-weights
-if (!require("plotrix")) install.packages("plotrix", repos = "http://cran.us.r-project.org", dependencies = TRUE)
-if (!require("grid")) install.packages("grid", repos = "http://cran.us.r-project.org", dependencies = TRUE)
-if (!require("Matrix")) install.packages("Matrix", repos = "http://cran.us.r-project.org", dependencies = TRUE)
-if (!require("survey")) install.packages("survey", repos = "http://cran.us.r-project.org", dependencies = TRUE)
-
-library(plotrix)
-library(grid) 
-library(Matrix)
-library(survey)
+# if (!require("plotrix")) install.packages("plotrix", repos = "http://cran.us.r-project.org", dependencies = TRUE)
+# if (!require("grid")) install.packages("grid", repos = "http://cran.us.r-project.org", dependencies = TRUE)
+# if (!require("Matrix")) install.packages("Matrix", repos = "http://cran.us.r-project.org", dependencies = TRUE)
+# if (!require("survey")) install.packages("survey", repos = "http://cran.us.r-project.org", dependencies = TRUE)
+# 
+# library(plotrix)
+# library(grid) 
+# library(Matrix)
+# library(survey)
 
 # match.data.all.wt <- svydesign(ids = ~ 1, data = temp, weights = ~ weights2)
 # ## Weighted table with tableone
@@ -813,8 +813,18 @@ match.UA50.across %>% names()
 #   write.csv(file.path(filepath, "15_Model/round03_03/across03.csv"))
 # write.csv(file.path(filepath, "15_Model/round03_04/across_all.csv"))
 
+# match.UA50.across[, c(31, 7, 12, 8, 11, 13:30, 32:99, 102:151)] %>% 
+#   write.csv(file.path(filepath, "15_Model/round04/across01.csv"))
+
 match.UA50.across[, c(31, 7, 12, 8, 11, 13:30, 32:99, 102:151)] %>% 
-  write.csv(file.path(filepath, "15_Model/round04/across01.csv"))
+  write.csv(file.path(filepath, "15_Model/round04/across02.csv"))
+
+match.UA50.across[, c(31, 7, 12, 8, 11, 13:30, 32:99, 102:151)] %>% 
+  write.csv(file.path(filepath, "15_Model/round04/across03.csv"))
+
+
+
+
 
 
 
