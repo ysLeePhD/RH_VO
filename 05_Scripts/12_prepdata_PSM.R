@@ -350,8 +350,6 @@ summary.unmatched.df$varnames <- rownames(summary.unmatched.df)
 #           path = file.path(filepath, "15_Model/round03/round03_03/across03_before_matching.csv"))
 
 
-
-
 psm <- glm(
   RS ~ 
     LIF_CYC02 + LIF_CYC03 + LIF_CYC04 + LIF_CYC05 + LIF_CYC06 + 
@@ -376,11 +374,19 @@ psm <- glm(
   #UA21 + UA22 + UA23 + UA24 + UA25 + UA26 + UA27 + UA28 + UA29 + UA30 + 
   #UA31 + UA32 + UA33 + UA34 + UA35 + UA36 + UA37 + UA38 + UA39 + UA40 + 
   #UA41 + UA42 + UA43 + UA44 + UA45 + UA46 + UA47 + UA48 + UA49 + UA50, 
-  family=binomial(link="probit"), 
+  family=binomial(link="logit"), 
   control = list(maxit = 100), 
   data=data13
 )
 summary(psm)
+summary(psm$fitted.values)
+# nrow(data13)
+# hist(psm$fitted.values[data13$RS == 0])
+# hist(psm$fitted.values[data13$RS == 1])
+# sd(psm$fitted.values)/4
+# data13$prob <- psm$fitted.values
+# data13$prob <- NULL
+rownames(data13) <- paste0(data13$HOUSEID, data13$PERSONID)
 
 ## stargazer(psm, type="text")
 ## How to deal with perfect separation in logistic regression?
@@ -461,12 +467,58 @@ a <- round(rnorm(1)*1000000000, digits = 0)
 print(a) 
 set.seed(a) # in case, -896573733 on 7/27/2019 12:55PM for 0 vs. 1
 
+input_ratio <- 10 
+
+t1 <- Sys.time()
 match.UA50 <- 
   matchit(
-    psm, method="nearest", ratio=1, replace=TRUE, 
+    psm, method="nearest", ratio=input_ratio, replace=TRUE, 
     distance="logit", reestimate = TRUE,  caliper=0.25, # caliper in the stdv unit
     data=data13
   ) 
+t2 <- Sys.time()
+t2-t1 
+
+# sd(match.UA50$distance)/4 # caliper
+# sum(psm$fitted.values != match.UA50$distance) # distance is in fact logit/probit probability 
+
+test00 <- match.UA50$match.matrix %>% as.data.frame()
+test00$treated <- rownames(test00)
+names(test00) <- c("matched.01", "matched.02", "matched.03", "matched.04", "matched.05", "treated")
+test01 <- as_tibble(test00[c(6, 1:5)])
+
+test02 <- vector("list")
+for (i in 1:nrow(test01)){
+  test02[[i]] <- 
+    data.frame(
+    treated = rep(test01[[i, 1]], input_ratio), 
+    control = test01[i, c(2:6)] %>% as.character()
+    )
+} 
+
+pairs01 <-
+  test02 %>%
+  bind_rows() %>%
+  as_tibble() %>%
+  arrange(treated, control) %>%
+  filter(is.na(control) == FALSE) %>%
+  group_by(treated, control)
+
+pairs02 <- 
+  test02 %>% 
+  bind_rows() %>% 
+  as_tibble() %>% 
+  arrange(treated, control) %>% 
+  filter(is.na(control) == FALSE) %>%
+  group_by(treated, control)
+
+n1  <- pairs01 %>% nrow()
+n12 <- pairs01 %>% semi_join(pairs02) %>% nrow()
+n12/n1
+
+n2  <- pairs02 %>% nrow()
+n21 <- pairs02 %>% semi_join(pairs01) %>% nrow()
+n21/n2
 
 b <- match.data(match.UA50) %>%
   filter(RS==0) %>%
