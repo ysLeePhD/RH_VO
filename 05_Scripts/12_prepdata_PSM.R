@@ -323,7 +323,7 @@ data13 <- read_rds(file.path(filepath, "11_Scratch/data13.rds"))
 
 data13$RS <- data13$RS %>% 
   recode(
-    "0"=0L, "3"=1L,#"2"=1L, #"1"=1L, 
+    "0"=0L, "1"=1L, #"1"=1L, "2"=1L, "3"=1L, 
     .default=NA_integer_, .missing = NA_integer_
   ) 
 # data13 %>% .$RS %>% table() 
@@ -385,8 +385,9 @@ summary(psm$fitted.values)
 # hist(psm$fitted.values[data13$RS == 1])
 quarter.stdv <- sd(psm$fitted.values)/4
 quarter.stdv
-# data13$prob <- psm$fitted.values
+data13$prob <- psm$fitted.values
 # data13$prob <- NULL
+data13$ID <- paste0(data13$HOUSEID, data13$PERSONID)
 rownames(data13) <- paste0(data13$HOUSEID, data13$PERSONID)
 
 ## stargazer(psm, type="text")
@@ -483,6 +484,28 @@ match.UA50 <-
 t2 <- Sys.time()
 t2-t1 
 
+matched.pairs <- 
+  match.UA50$match.matrix %>% 
+  as.data.frame()
+matched.pairs$treated = rownames(matched.pairs)
+matched.pairs$control = matched.pairs[, 1]
+
+pairs.outofcaliper <- 
+  matched.pairs %>% 
+  as_tibble() %>%
+  select(treated, control) %>% 
+  left_join(data13[, c("ID", "prob")], by = c("treated" = "ID")) %>%
+  mutate(prob.treated = prob) %>%
+  select(-prob) %>%
+  left_join(data13[, c("ID", "prob")], by = c("control" = "ID")) %>%
+  mutate(prob.control = prob) %>%
+  select(-prob) %>%
+  mutate(diff = abs(prob.treated - prob.control)) %>%
+  filter(diff>=quarter.stdv) %>%
+  select(treated, diff)
+  
+pairs.outofcaliper$diff %>% summary()
+  
 # sd(match.UA50$distance)/4 # caliper
 # sum(psm$fitted.values != match.UA50$distance) # distance is in fact logit/probit probability 
 
@@ -561,7 +584,11 @@ pairs01 %>%
 
 match.UA50.across <-  
   match.data(match.UA50) %>% 
-  as_tibble() 
+  as_tibble() %>%
+  anti_join(pairs.outofcaliper, by = c("ID" = "treated")) 
+
+match.UA50.across %>%
+  names()
 
 nhtsualist3 <- nhtsualist2
 nhtsualist3$UAno <- rownames(nhtsualist3) %>% as.integer()
@@ -573,11 +600,11 @@ match.UA50.across %>%
   mutate( n = `0` + `1`) %>% 
   left_join(nhtsualist3, by = "UACE10") %>%
   #filter(n>67.04) %>%
-  arrange(UAno) %>% #by default ascending order 
-  #View() %>%
+  arrange(n) %>% #by default ascending order 
+  #View() #%>%
   write_csv(file.path(filepath, "15_Model/round04/CountbyUA01.csv"))
-  write_csv(file.path(filepath, "15_Model/round04/CountbyUA02.csv"))
-  write_csv(file.path(filepath, "15_Model/round04/CountbyUA03.csv"))
+  #write_csv(file.path(filepath, "15_Model/round04/CountbyUA02.csv"))
+  #write_csv(file.path(filepath, "15_Model/round04/CountbyUA03.csv"))
 
 # match.UA50.across %>% write_rds(file.path(filepath, "11_Scratch/match_UA50_across_all.rds"))
 # match.UA50.across <- read_rds(file.path(filepath, "11_Scratch/match_UA50_across_all.rds"))
@@ -801,25 +828,12 @@ match.data.within2[, c(36, 5, 8, 6:7, 9:35, 37:89)] %>%
 ### Task 4-4-2. Across UA matching ---- 
 
 match.UA50.across %>% names()
-# for matching by frequency category (1, 2, and 3)
-# match.UA50.across[, c(5, 8, 6:7)] %>% map(table)
-# for all matching (regardless of ridehailnig frequency)  
-# match.UA50.across[, c(4, 6, 9, 10)] %>% map(hist)
 
-
-# match.UA50.across[, c(27, 5, 8, 6:7, 9:26, 28:96, 98:147, 151)] %>% 
-#   write.csv(file.path(filepath, "15_Model/round03_01/across01.csv"))
-# match.UA50.across[, c(27, 5, 8, 6:7, 9:26, 28:96, 98:147, 151)] %>% 
-#   write.csv(file.path(filepath, "15_Model/round03_02/across02.csv"))
-# match.UA50.across[, c(27, 5, 8, 6:7, 9:26, 28:96, 98:116, 118:147, 151)] %>%  
-#   write.csv(file.path(filepath, "15_Model/round03_03/across03.csv"))
-# write.csv(file.path(filepath, "15_Model/round03_04/across_all.csv"))
-
-match.UA50.across[, c(31, 7, 12, 8, 11, 13:30, 32:99, 102:151)] %>%
+match.UA50.across[, c(31, 7, 12, 8, 11, 13:30, 32:99, 102:151, 154)] %>%
   write.csv(file.path(filepath, "15_Model/round04/across01.csv"))
-match.UA50.across[, c(31, 7, 12, 8, 11, 13:30, 32:99, 102:151)] %>% #names()
+match.UA50.across[, c(31, 7, 12, 8, 11, 13:30, 32:99, 102:151, 154)] %>% #names()
   write.csv(file.path(filepath, "15_Model/round04/across02.csv")) # UA=23 missing
-match.UA50.across[, c(31, 7, 12, 8, 11, 13:30, 32:99, 102:151)] %>%
+match.UA50.across[, c(31, 7, 12, 8, 11, 13:30, 32:99, 102:151, 154)] %>%
   write.csv(file.path(filepath, "15_Model/round04/across03.csv"))
 
 
