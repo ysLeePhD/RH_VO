@@ -20,6 +20,8 @@ if (!require("tableone")) install.packages("tableone", repos = "http://cran.us.r
 if (!require("MatchIt")) install.packages("MatchIt", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 if (!require("optmatch")) install.packages("optmatch", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 
+if (!require("MASS")) install.packages("MASS", repos = "http://cran.us.r-project.org", dependencies = TRUE)
+
 # detach(package:  )
 
 library(foreign)
@@ -38,6 +40,8 @@ library(tableone)
 library(MatchIt)
 library(optmatch)
 library(survival)
+
+library(MASS)
 
 options(stringsAsFactors = FALSE)
 # check the integer max value 
@@ -390,6 +394,25 @@ data13$prob <- psm$fitted.values
 data13$ID <- paste0(data13$HOUSEID, data13$PERSONID)
 rownames(data13) <- paste0(data13$HOUSEID, data13$PERSONID)
 
+
+
+## test: a single equation - VO ordered probit, before macthing ---- 
+
+library(MASS)
+
+test1 <- polr(HHVEHCNT2 ~ RS + WRKCOUNT + NUMCHILD + home.den.pp + UACE10, data = data13)
+summary(test1)
+
+data13$RS2 <- data13$RS %>% as.factor()
+test2 <- glm(RS2 ~ 
+               HHVEHCNT2 + home.den.pp + deliver01 + deliver02 + deliver03 + deliver04 + UACE10, 
+             family = binomial(link = "probit"), 
+             data = data13)
+summary(test2)
+data13$RS2 <- NULL 
+
+detach("package:MASS", unload = TRUE)
+
 ## stargazer(psm, type="text")
 ## How to deal with perfect separation in logistic regression?
 ## https://stats.stackexchange.com/questions/11109/how-to-deal-with-perfect-separation-in-logistic-regression
@@ -502,7 +525,7 @@ pairs.outofcaliper <-
   select(-prob) %>%
   mutate(diff = abs(prob.treated - prob.control)) %>%
   filter(diff>=quarter.stdv) %>%
-  select(treated, diff)
+  select(treated, control, diff)
   
 pairs.outofcaliper$diff %>% summary()
   
@@ -585,7 +608,26 @@ pairs01 %>%
 match.UA50.across <-  
   match.data(match.UA50) %>% 
   as_tibble() %>%
-  anti_join(pairs.outofcaliper, by = c("ID" = "treated")) 
+  anti_join(pairs.outofcaliper, by = c("ID" = "treated")) %>%
+  anti_join(pairs.outofcaliper, by = c("ID" = "control"))
+
+
+library(MASS)
+
+test1 <- polr(HHVEHCNT2 ~ RS + WRKCOUNT + NUMCHILD + home.den.pp + UACE10, data = match.UA50.across)
+summary(test1)
+
+match.UA50.across$RS2 <- match.UA50.across$RS %>% as.factor()
+test2 <- glm(RS2 ~ 
+               HHVEHCNT2 + home.den.pp + deliver01 + deliver02 + deliver03 + deliver04 + UACE10, 
+             family = binomial(link = "probit"), 
+             data = match.UA50.across)
+summary(test2)
+match.UA50.across$RS2 <- NULL 
+
+detach("package:MASS", unload = TRUE)
+
+
 
 match.UA50.across %>%
   names()
@@ -602,9 +644,9 @@ match.UA50.across %>%
   #filter(n>67.04) %>%
   arrange(n) %>% #by default ascending order 
   #View() #%>%
-  write_csv(file.path(filepath, "15_Model/round04/CountbyUA01.csv"))
-  #write_csv(file.path(filepath, "15_Model/round04/CountbyUA02.csv"))
-  #write_csv(file.path(filepath, "15_Model/round04/CountbyUA03.csv"))
+  # write_csv(file.path(filepath, "15_Model/round04/CountbyUA01.csv"))
+  # write_csv(file.path(filepath, "15_Model/round04/CountbyUA02.csv"))
+  write_csv(file.path(filepath, "15_Model/round04/CountbyUA03.csv"))
 
 # match.UA50.across %>% write_rds(file.path(filepath, "11_Scratch/match_UA50_across_all.rds"))
 # match.UA50.across <- read_rds(file.path(filepath, "11_Scratch/match_UA50_across_all.rds"))
@@ -829,11 +871,11 @@ match.data.within2[, c(36, 5, 8, 6:7, 9:35, 37:89)] %>%
 
 match.UA50.across %>% names()
 
-match.UA50.across[, c(31, 7, 12, 8, 11, 13:30, 32:99, 102:151, 154)] %>%
-  write.csv(file.path(filepath, "15_Model/round04/across01.csv"))
-match.UA50.across[, c(31, 7, 12, 8, 11, 13:30, 32:99, 102:151, 154)] %>% #names()
-  write.csv(file.path(filepath, "15_Model/round04/across02.csv")) # UA=23 missing
-match.UA50.across[, c(31, 7, 12, 8, 11, 13:30, 32:99, 102:151, 154)] %>%
+# match.UA50.across[, c(31, 7, 12, 8, 11, 13:30, 32:100, 102:151, 154)] %>%
+#   write.csv(file.path(filepath, "15_Model/round04/across01.csv"))
+# match.UA50.across[, c(31, 7, 12, 8, 11, 13:30, 32:100, 102:151, 154)] %>% #names()
+#   write.csv(file.path(filepath, "15_Model/round04/across02.csv")) # UA=23 missing
+match.UA50.across[, c(31, 7, 12, 8, 11, 13:30, 32:100, 102:151, 154)] %>%
   write.csv(file.path(filepath, "15_Model/round04/across03.csv"))
 
 
