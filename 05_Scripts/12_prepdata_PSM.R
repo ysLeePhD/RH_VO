@@ -279,11 +279,11 @@ nhtsualist2 <-
       paste0("0", as.character(UACE10)), 
       as.character(UACE10))
   ) %>% 
-  select(UACE10, NAME10) %>%
+  dplyr::select(UACE10, NAME10) %>%
   arrange(UACE10)
 
 temp <- left_join(data12, nhtsualist2, by = "UACE10")
-
+?select
 
 for (i in 1:50){
   new <- ifelse(temp$UACE10==nhtsualist2$UACE10[i], 1, 0)
@@ -516,16 +516,16 @@ matched.pairs$control = matched.pairs[, 1]
 pairs.outofcaliper <- 
   matched.pairs %>% 
   as_tibble() %>%
-  select(treated, control) %>% 
+  dplyr::select(treated, control) %>% 
   left_join(data13[, c("ID", "prob")], by = c("treated" = "ID")) %>%
   mutate(prob.treated = prob) %>%
-  select(-prob) %>%
+  dplyr::select(-prob) %>%
   left_join(data13[, c("ID", "prob")], by = c("control" = "ID")) %>%
   mutate(prob.control = prob) %>%
-  select(-prob) %>%
+  dplyr::select(-prob) %>%
   mutate(diff = abs(prob.treated - prob.control)) %>%
   filter(diff>=quarter.stdv) %>%
-  select(treated, control, diff)
+  dplyr::select(treated, control, diff)
   
 pairs.outofcaliper$diff %>% summary()
   
@@ -611,18 +611,58 @@ match.UA50.across <-
   anti_join(pairs.outofcaliper, by = c("ID" = "treated")) %>%
   anti_join(pairs.outofcaliper, by = c("ID" = "control"))
 
-
 library(MASS)
 
 test1 <- polr(HHVEHCNT2 ~ RS + WRKCOUNT + NUMCHILD + home.den.pp + UACE10, data = match.UA50.across)
 summary(test1)
 
 match.UA50.across$RS2 <- match.UA50.across$RS %>% as.factor()
+
 test2 <- glm(RS2 ~ 
-               HHVEHCNT2 + home.den.pp + deliver01 + deliver02 + deliver03 + deliver04 + UACE10, 
+               #LIF_CYC02 + LIF_CYC03 + LIF_CYC04 + LIF_CYC05 + LIF_CYC06 + 
+               WRKCOUNT + # NUMCHILD + # DRVRCNT + YOUNGCHILD + 
+               #HHFAMINC02 + HHFAMINC03 + HHFAMINC04 + HHFAMINC05 + HHFAMINC06 + 
+               HOMEOWN2 + 
+               HHVEHCNT2 + # home.den.pp + work.den.pp + 
+               R_AGE + # EDUC02 + EDUC03 + EDUC04 + OCCAT04 + 
+               # Telecommute01 + Telecommute02 + Telecommute03 + Telecommute04 + 
+               # deliver01 + deliver02 + deliver03 + deliver04 + 
+               # SPHONE01 + SPHONE02 + SPHONE03 + SPHONE04 + 
+               UACE10, 
              family = binomial(link = "probit"), 
              data = match.UA50.across)
 summary(test2)
+# https://thestatsgeek.com/2014/02/08/r-squared-in-logistic-regression/
+# test2.null <- glm(RS2 ~1, 
+#              family = binomial(link = "probit"), 
+#              data = match.UA50.across)
+# 1-logLik(test2)/logLik(test2.null) 
+
+install.packages("olsrr", dep = TRUE)
+library(olsrr)
+
+test0 <- lm(home.den.pp ~ work.den.pp + DRVRCNT + DRIVER + NUMCHILD +   
+              LIF_CYC02 + LIF_CYC03 + LIF_CYC04 + LIF_CYC05 + LIF_CYC06 + 
+              HHFAMINC02 + HHFAMINC03 + HHFAMINC04 + HHFAMINC05 + HHFAMINC06 + 
+              HOMEOWN2 + # EDUC02 + EDUC03 + EDUC04 + # OCCAT04 + 
+              UACE10, 
+            data=match.UA50.across)
+
+summary(test0)
+ols_vif_tol(test0) %>%
+  filter(VIF>=2.5) %>%
+  arrange(desc(VIF))
+# ols_plot_resid_fit_spread(test0)
+# ols_plot_obs_fit(test0)
+
+
+
+
+
+
+
+
+
 match.UA50.across$RS2 <- NULL 
 
 detach("package:MASS", unload = TRUE)
