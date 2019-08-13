@@ -327,7 +327,7 @@ data13 <- read_rds(file.path(filepath, "11_Scratch/data13.rds"))
 
 data13$RS <- data13$RS %>% 
   recode(
-    "0"=0L, "1"=1L, #"1"=1L, "2"=1L, "3"=1L, 
+    "0"=0L, "2"=1L, #"1"=1L, "2"=1L, "3"=1L, 
     .default=NA_integer_, .missing = NA_integer_
   ) 
 # data13 %>% .$RS %>% table() 
@@ -396,7 +396,7 @@ rownames(data13) <- paste0(data13$HOUSEID, data13$PERSONID)
 
 
 
-## test: a single equation - VO ordered probit, before macthing ---- 
+## test: a single equation - VO ordered probit, **before** macthing ---- 
 
 library(MASS)
 
@@ -619,24 +619,24 @@ summary(test1)
 match.UA50.across$RS2 <- match.UA50.across$RS %>% as.factor()
 
 test2 <- glm(RS2 ~ 
-               #LIF_CYC02 + LIF_CYC03 + LIF_CYC04 + LIF_CYC05 + LIF_CYC06 + 
-               WRKCOUNT + # NUMCHILD + # DRVRCNT + YOUNGCHILD + 
-               #HHFAMINC02 + HHFAMINC03 + HHFAMINC04 + HHFAMINC05 + HHFAMINC06 + 
+               LIF_CYC02 + LIF_CYC03 + LIF_CYC04 + LIF_CYC05 + LIF_CYC06 + 
+               WRKCOUNT + NUMCHILD + DRVRCNT + YOUNGCHILD + 
+               HHFAMINC02 + HHFAMINC03 + HHFAMINC04 + HHFAMINC05 + HHFAMINC06 + 
                HOMEOWN2 + 
-               HHVEHCNT2 + # home.den.pp + work.den.pp + 
-               R_AGE + # EDUC02 + EDUC03 + EDUC04 + OCCAT04 + 
-               # Telecommute01 + Telecommute02 + Telecommute03 + Telecommute04 + 
-               # deliver01 + deliver02 + deliver03 + deliver04 + 
-               # SPHONE01 + SPHONE02 + SPHONE03 + SPHONE04 + 
+               HHVEHCNT2 + home.den.pp + work.den.pp + 
+               R_AGE + EDUC02 + EDUC03 + EDUC04 + OCCAT04 + 
+               Telecommute01 + Telecommute02 + Telecommute03 + Telecommute04 + 
+               deliver01 + deliver02 + deliver03 + deliver04 + 
+               SPHONE01 + SPHONE02 + SPHONE03 + SPHONE04 + 
                UACE10, 
              family = binomial(link = "probit"), 
              data = match.UA50.across)
 summary(test2)
 # https://thestatsgeek.com/2014/02/08/r-squared-in-logistic-regression/
-# test2.null <- glm(RS2 ~1, 
-#              family = binomial(link = "probit"), 
+# test2.null <- glm(RS2 ~1,
+#              family = binomial(link = "probit"),
 #              data = match.UA50.across)
-# 1-logLik(test2)/logLik(test2.null) 
+# 1-logLik(test2)/logLik(test2.null)
 
 install.packages("olsrr", dep = TRUE)
 library(olsrr)
@@ -683,7 +683,7 @@ match.UA50.across %>%
   left_join(nhtsualist3, by = "UACE10") %>%
   #filter(n>67.04) %>%
   arrange(n) %>% #by default ascending order 
-  #View() #%>%
+  View() #%>%
   # write_csv(file.path(filepath, "15_Model/round04/CountbyUA01.csv"))
   # write_csv(file.path(filepath, "15_Model/round04/CountbyUA02.csv"))
   write_csv(file.path(filepath, "15_Model/round04/CountbyUA03.csv"))
