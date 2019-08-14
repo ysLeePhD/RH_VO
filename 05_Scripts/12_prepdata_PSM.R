@@ -121,14 +121,16 @@ data10$RS <- ifelse(
   data10$RIDESHARE<0, NA_integer_, ifelse(
     data10$RIDESHARE==0, 0L, ifelse( # non-user
       data10$RIDESHARE<4, 1L, ifelse( # less than once a week 
-        data10$RIDESHARE<8, 2L, 3L # less than twice a week vs. at least twice a week 
+        data10$RIDESHARE<8, 2L, ifelse( # less than twice a week  
+          data10$RIDESHARE<12, 3L, 4L # less than 3 times a week vs. 3+ times a week 
+        )
       )
     )
   )
 )
 
-# table(data10$RS)
-# summary(data10$RS) # 32 NA cases 
+table(data10$RS)
+summary(data10$RS) # 32 NA cases
 
 # a <- data10$RS %>% table() %>% as.data.frame() 
 # a$Freq %>% sum()
@@ -283,7 +285,7 @@ nhtsualist2 <-
   arrange(UACE10)
 
 temp <- left_join(data12, nhtsualist2, by = "UACE10")
-?select
+ 
 
 for (i in 1:50){
   new <- ifelse(temp$UACE10==nhtsualist2$UACE10[i], 1, 0)
@@ -323,15 +325,19 @@ a[order(-a$User, -a$pctUser), ]
 
 data13 <- read_rds(file.path(filepath, "11_Scratch/data13.rds"))
 # data13 %>% names() 
-# data13 %>% .$RS %>% table() 
+data13 %>% .$RS %>% table()
+data13 %>% .$RS %>% table() %>% sum()
+data13 %>% .$RS %>% summary()
 
 data13$RS <- data13$RS %>% 
   recode(
-    "0"=0L, "2"=1L, #"1"=1L, "2"=1L, "3"=1L, 
+    "0"=0L, "1"=1L, "2"=1L, "3"=1L, "4"=1L, 
     .default=NA_integer_, .missing = NA_integer_
   ) 
-# data13 %>% .$RS %>% table() 
-# data13 %>% .$RS %>% summary() 
+data13 %>% .$RS %>% table()
+data13 %>% .$RS %>% table() %>% sum()
+data13 %>% .$RS %>% summary()
+
 data13 <- data13 %>%
   filter(is.na(RS) == FALSE) 
 
@@ -372,7 +378,7 @@ psm <- glm(
     SPHONE01 + SPHONE02 + SPHONE03 + SPHONE04 + 
     TAB01 + TAB02 + TAB03 + TAB04 + 
     WEB01 + WEB02 + WEB03 + WEB04 + 
-    medcon, #+
+    medcon + UACE10, #+
   #UA02 + UA03 + UA04 + UA05 + UA06 + UA07 + UA08 + UA09 + UA10 + 
   #UA11 + UA12 + UA13 + UA14 + UA15 + UA16 + UA17 + UA18 + UA19 + UA20 + 
   #UA21 + UA22 + UA23 + UA24 + UA25 + UA26 + UA27 + UA28 + UA29 + UA30 + 
@@ -384,9 +390,9 @@ psm <- glm(
 )
 summary(psm)
 summary(psm$fitted.values)
-# nrow(data13)
-# hist(psm$fitted.values[data13$RS == 0])
-# hist(psm$fitted.values[data13$RS == 1])
+nrow(data13)
+hist(psm$fitted.values[data13$RS == 0])
+hist(psm$fitted.values[data13$RS == 1])
 quarter.stdv <- sd(psm$fitted.values)/4
 quarter.stdv
 data13$prob <- psm$fitted.values
@@ -479,7 +485,7 @@ match.data.within %>%
   left_join(nhtsualist2, by = "UACE10")
 
 
-### Task 4-2-2. across-UA matching ----  
+### Task 4-2-2. across-UA manually matching ----  
 
 
 # https://cran.r-project.org/web/packages/MatchIt/MatchIt.pdf
@@ -487,6 +493,117 @@ match.data.within %>%
 # https://stackoverflow.com/questions/42965310/r-matchit-on-7-variables-with-different-seeds
 # https://stats.stackexchange.com/questions/86285/random-number-set-seedn-in-r
 # This seed number is really really critical! 
+
+
+library(data.table)
+
+pooled <- data13[c(154, 12, 153)]
+treated <- pooled %>% filter(RS == 1)
+control <- pooled %>% filter(RS == 0)
+
+find.nearest <-function(x){
+  prob.treated <- 
+    treated %>%
+    filter(ID == x) %>%
+    .$prob
+  
+  ID.matched.control <- 
+    control %>%
+    mutate(
+      diff = abs(prob - prob.treated)
+    ) %>%
+    filter(diff<quarter.stdv) %>%
+    data.table() %>%
+    .[ , .SD[which.min(diff)], by = RS] 
+  
+  return (c(x, ID.matched.control$ID, ID.matched.control$diff))
+}
+
+temp00 <- map(treated$ID, find.nearest)
+temp01 <- map_dbl(temp00, length) > 1
+sum(temp01)/length(temp01)
+
+temp02 <- data.frame( 
+  treated = map(temp00[temp01], ~.[1]) %>% unlist(), 
+  control = map(temp00[temp01], ~.[2]) %>% unlist(), 
+  diff    = map(temp00[temp01], ~.[3]) %>% unlist() %>% as.numeric()
+)
+
+# temp02$diff %>% summary()
+
+temp03 <- temp02 %>%
+  group_by(control) %>%
+  count()
+# temp03$n %>% summary() # Max == 10 
+
+temp04 <- data13 %>%
+  semi_join(temp02, by = c("ID" = "treated")) 
+temp04$n <- 1
+
+temp05 <- data13 %>% 
+  inner_join(temp03, by = c("ID" = "control")) 
+
+temp06 <- rbind(temp04, temp05)
+# temp06 %>% filter(RS == 1) %>% .$n %>% sum()
+# temp06 %>% filter(RS == 0) %>% .$n %>% sum()
+
+temp06 %>% names()
+
+psm <- lm(
+  LNRS ~ 
+    LIF_CYC02 + LIF_CYC03 + LIF_CYC04 + LIF_CYC05 + LIF_CYC06 + 
+    WRKCOUNT + DRVRCNT + NUMCHILD + YOUNGCHILD + 
+    HHFAMINC02 + HHFAMINC03 + HHFAMINC04 + HHFAMINC05 + HHFAMINC06 + HOMEOWN2 + 
+    home.den.pp + home.den.st + home.jobrich + home.oldnbhd + home.sfh + 
+    home.pctcoll + home.pctyoung + home.pctxveh + 
+    work.den.pp + work.den.st + work.jobrich + work.oldnbhd + work.sfh + 
+    work.den.tech + work.den.serv + 
+    R_SEX + R_AGE + R_RACE02 + R_RACE03 + R_RACE04 + R_RACE06 + R_RACE97 + # R_RACE01 + 
+    R_HISP + DRIVER + EDUC02 + EDUC03 + EDUC04 +  OCCAT01 + OCCAT02 + OCCAT03 + OCCAT05 + # OCCAT04 + 
+    lncommute + WKFTPT2 + FLEXTIME2 + GT1JBLWK2 +  
+    Telecommute01 + Telecommute02 + Telecommute03 + Telecommute04 + 
+    deliver01 + deliver02 + deliver03 + deliver04 + 
+    PC01 + PC02 + PC03 + PC04 + 
+    SPHONE01 + SPHONE02 + SPHONE03 + SPHONE04 + 
+    TAB01 + TAB02 + TAB03 + TAB04 + 
+    WEB01 + WEB02 + WEB03 + WEB04 + 
+    medcon + UACE10,
+  #family=binomial(link="logit"), 
+  #control = list(maxit = 100), 
+  data=temp06
+)
+summary(psm)
+
+
+nhtsualist3 <- nhtsualist2
+nhtsualist3$UAno <- rownames(nhtsualist3) %>% as.integer()
+
+temp06 %>% 
+  group_by(UACE10, RS) %>% 
+  summarize(n = n()) %>% 
+  spread(key = RS, value = n) %>% 
+  mutate( n = `0` + `1`) %>% 
+  left_join(nhtsualist3, by = "UACE10") %>%
+  #filter(n>67.04) %>%
+  arrange(n) %>% #by default ascending order 
+  # View() # %>%
+  # write_csv(file.path(filepath, "15_Model/round04/CountbyUA01.csv"))
+  # write_csv(file.path(filepath, "15_Model/round04/CountbyUA02.csv"))
+  # write_csv(file.path(filepath, "15_Model/round04/CountbyUA03.csv"))
+  # write_csv(file.path(filepath, "15_Model/round05/CountbyUA04manualmatching.csv"))
+  write_csv(file.path(filepath, "15_Model/round05/CountbyUA05.csv"))
+
+temp06 %>% names()
+
+# temp06[, c(31, 7, 12, 8, 11, 13:30, 32:100, 102:151, 154:155)] %>%
+temp06[, c(31, 6, 4, 9, 10, 13:30, 32:100, 102:151, 154:155)] %>%
+  write.csv(file.path(filepath, "15_Model/round05/across05.csv"))
+
+
+
+
+
+### Task 4-2-3. across-UA R package matching ----  
 
 options("optmatch_max_problem_size" = Inf)
 # ?optmatch::fullmatch
@@ -505,7 +622,7 @@ match.UA50 <-
     data=data13
   ) 
 t2 <- Sys.time()
-t2-t1 
+t2-t1
 
 matched.pairs <- 
   match.UA50$match.matrix %>% 
@@ -637,6 +754,10 @@ summary(test2)
 #              family = binomial(link = "probit"),
 #              data = match.UA50.across)
 # 1-logLik(test2)/logLik(test2.null)
+match.UA50.across$RS2 <- NULL 
+
+detach("package:MASS", unload = TRUE)
+
 
 install.packages("olsrr", dep = TRUE)
 library(olsrr)
@@ -652,20 +773,9 @@ summary(test0)
 ols_vif_tol(test0) %>%
   filter(VIF>=2.5) %>%
   arrange(desc(VIF))
-# ols_plot_resid_fit_spread(test0)
-# ols_plot_obs_fit(test0)
+ols_plot_resid_fit_spread(test0)
+ols_plot_obs_fit(test0)
 
-
-
-
-
-
-
-
-
-match.UA50.across$RS2 <- NULL 
-
-detach("package:MASS", unload = TRUE)
 
 
 
@@ -686,7 +796,8 @@ match.UA50.across %>%
   View() #%>%
   # write_csv(file.path(filepath, "15_Model/round04/CountbyUA01.csv"))
   # write_csv(file.path(filepath, "15_Model/round04/CountbyUA02.csv"))
-  write_csv(file.path(filepath, "15_Model/round04/CountbyUA03.csv"))
+  # write_csv(file.path(filepath, "15_Model/round04/CountbyUA03.csv"))
+  write_csv(file.path(filepath, "15_Model/round04/CountbyUA04.csv"))
 
 # match.UA50.across %>% write_rds(file.path(filepath, "11_Scratch/match_UA50_across_all.rds"))
 # match.UA50.across <- read_rds(file.path(filepath, "11_Scratch/match_UA50_across_all.rds"))
@@ -915,8 +1026,10 @@ match.UA50.across %>% names()
 #   write.csv(file.path(filepath, "15_Model/round04/across01.csv"))
 # match.UA50.across[, c(31, 7, 12, 8, 11, 13:30, 32:100, 102:151, 154)] %>% #names()
 #   write.csv(file.path(filepath, "15_Model/round04/across02.csv")) # UA=23 missing
+# match.UA50.across[, c(31, 7, 12, 8, 11, 13:30, 32:100, 102:151, 154)] %>%
+#   write.csv(file.path(filepath, "15_Model/round04/across03.csv"))
 match.UA50.across[, c(31, 7, 12, 8, 11, 13:30, 32:100, 102:151, 154)] %>%
-  write.csv(file.path(filepath, "15_Model/round04/across03.csv"))
+  write.csv(file.path(filepath, "15_Model/round04/across04.csv"))
 
 
 
