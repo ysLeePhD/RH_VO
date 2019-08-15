@@ -331,7 +331,7 @@ data13 %>% .$RS %>% summary()
 
 data13$RS <- data13$RS %>% 
   recode(
-    "0"=0L, "1"=1L, "2"=1L, "3"=1L, "4"=1L, 
+    "0"=0L, "4"=1L, #"1"=1L, #"2"=1L, "3"=1L, "4"=1L, 
     .default=NA_integer_, .missing = NA_integer_
   ) 
 data13 %>% .$RS %>% table()
@@ -404,20 +404,20 @@ rownames(data13) <- paste0(data13$HOUSEID, data13$PERSONID)
 
 ## test: a single equation - VO ordered probit, **before** macthing ---- 
 
-library(MASS)
-
-test1 <- polr(HHVEHCNT2 ~ RS + WRKCOUNT + NUMCHILD + home.den.pp + UACE10, data = data13)
-summary(test1)
-
-data13$RS2 <- data13$RS %>% as.factor()
-test2 <- glm(RS2 ~ 
-               HHVEHCNT2 + home.den.pp + deliver01 + deliver02 + deliver03 + deliver04 + UACE10, 
-             family = binomial(link = "probit"), 
-             data = data13)
-summary(test2)
-data13$RS2 <- NULL 
-
-detach("package:MASS", unload = TRUE)
+# library(MASS)
+# 
+# test1 <- polr(HHVEHCNT2 ~ RS + WRKCOUNT + NUMCHILD + home.den.pp + UACE10, data = data13)
+# summary(test1)
+# 
+# data13$RS2 <- data13$RS %>% as.factor()
+# test2 <- glm(RS2 ~ 
+#                HHVEHCNT2 + home.den.pp + deliver01 + deliver02 + deliver03 + deliver04 + UACE10, 
+#              family = binomial(link = "probit"), 
+#              data = data13)
+# summary(test2)
+# data13$RS2 <- NULL 
+# 
+# detach("package:MASS", unload = TRUE)
 
 ## stargazer(psm, type="text")
 ## How to deal with perfect separation in logistic regression?
@@ -544,8 +544,10 @@ temp05 <- data13 %>%
   inner_join(temp03, by = c("ID" = "control")) 
 
 temp06 <- rbind(temp04, temp05)
-# temp06 %>% filter(RS == 1) %>% .$n %>% sum()
-# temp06 %>% filter(RS == 0) %>% .$n %>% sum()
+
+temp06 %>% filter(RS == 1) %>% .$n %>% sum()
+temp06 %>% filter(RS == 0) %>% .$n %>% sum()
+temp06 %>% filter(RS == 0) %>% .$n %>% summary()
 
 temp06 %>% names()
 
@@ -587,20 +589,33 @@ temp06 %>%
   #filter(n>67.04) %>%
   arrange(n) %>% #by default ascending order 
   # View() # %>%
-  # write_csv(file.path(filepath, "15_Model/round04/CountbyUA01.csv"))
-  # write_csv(file.path(filepath, "15_Model/round04/CountbyUA02.csv"))
-  # write_csv(file.path(filepath, "15_Model/round04/CountbyUA03.csv"))
-  # write_csv(file.path(filepath, "15_Model/round05/CountbyUA04manualmatching.csv"))
-  write_csv(file.path(filepath, "15_Model/round05/CountbyUA05.csv"))
+  # write_csv(file.path(filepath, "15_Model/round05/CountbyUA01.csv"))
+  # write_csv(file.path(filepath, "15_Model/round05/CountbyUA02.csv"))
+  # write_csv(file.path(filepath, "15_Model/round05/CountbyUA03.csv"))
+  # write_csv(file.path(filepath, "15_Model/round05/CountbyUA04.csv"))
+  # write_csv(file.path(filepath, "15_Model/round05/CountbyUA05.csv"))
 
 temp06 %>% names()
 
-# temp06[, c(31, 7, 12, 8, 11, 13:30, 32:100, 102:151, 154:155)] %>%
-temp06[, c(31, 6, 4, 9, 10, 13:30, 32:100, 102:151, 154:155)] %>%
-  write.csv(file.path(filepath, "15_Model/round05/across05.csv"))
+temp06[, c(31, 7, 12, 8, 11, 13:30, 32:100, 102:151, 154:155)] %>%
+# temp06[, c(31, 6, 4, 9, 10, 13:30, 32:100, 102:151, 154:155)] %>%
+  # write.csv(file.path(filepath, "15_Model/round05/across01.csv"))
+  # write.csv(file.path(filepath, "15_Model/round05/across02.csv"))
+  # write.csv(file.path(filepath, "15_Model/round05/across03.csv"))
+  # write.csv(file.path(filepath, "15_Model/round05/across04.csv"))
+  # write.csv(file.path(filepath, "15_Model/round05/across05.csv"))
+
+  
+# write_rds(temp06, file.path(filepath, "15_Model/round05/r5acrs01.rds"))
+# write_rds(temp06, file.path(filepath, "15_Model/round05/r5acrs02.rds"))
+# write_rds(temp06, file.path(filepath, "15_Model/round05/r5acrs03.rds"))
+# write_rds(temp06, file.path(filepath, "15_Model/round05/r5acrs04.rds"))
 
 
-
+# r5acrs01 <- read_rds(file.path(filepath, "15_Model/round05/r5acrs01.rds"))
+# r5acrs02 <- read_rds(file.path(filepath, "15_Model/round05/r5acrs02.rds"))
+# r5acrs03 <- read_rds(file.path(filepath, "15_Model/round05/r5acrs03.rds"))
+# r5acrs04 <- read_rds(file.path(filepath, "15_Model/round05/r5acrs04.rds"))
 
 
 ### Task 4-2-3. across-UA R package matching ----  
