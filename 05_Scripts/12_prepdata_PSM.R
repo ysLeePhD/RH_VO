@@ -324,6 +324,7 @@ a[order(-a$User, -a$pctUser), ]
 ## library(stargazer)
 
 data13 <- read_rds(file.path(filepath, "11_Scratch/data13.rds"))
+
 # data13 %>% names() 
 data13 %>% .$RS %>% table()
 data13 %>% .$RS %>% table() %>% sum()
@@ -331,7 +332,7 @@ data13 %>% .$RS %>% summary()
 
 data13$RS <- data13$RS %>% 
   recode(
-    "0"=0L, "4"=1L, #"1"=1L, #"2"=1L, "3"=1L, "4"=1L, 
+    "0"=0L, " "=1L, #"1"=1L, #"2"=1L, "3"=1L, "4"=1L, 
     .default=NA_integer_, .missing = NA_integer_
   ) 
 data13 %>% .$RS %>% table()
@@ -551,8 +552,8 @@ temp06 %>% filter(RS == 0) %>% .$n %>% summary()
 
 temp06 %>% names()
 
-psm <- lm(
-  LNRS ~ 
+psm <- glm(
+  RS ~ 
     LIF_CYC02 + LIF_CYC03 + LIF_CYC04 + LIF_CYC05 + LIF_CYC06 + 
     WRKCOUNT + DRVRCNT + NUMCHILD + YOUNGCHILD + 
     HHFAMINC02 + HHFAMINC03 + HHFAMINC04 + HHFAMINC05 + HHFAMINC06 + HOMEOWN2 + 
@@ -570,8 +571,8 @@ psm <- lm(
     TAB01 + TAB02 + TAB03 + TAB04 + 
     WEB01 + WEB02 + WEB03 + WEB04 + 
     medcon + UACE10,
-  #family=binomial(link="logit"), 
-  #control = list(maxit = 100), 
+  family=binomial(link="logit"), 
+  control = list(maxit = 100), 
   data=temp06
 )
 summary(psm)
