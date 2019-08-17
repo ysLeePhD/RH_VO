@@ -354,11 +354,13 @@ summary.unmatched.df <- print(summary.unmatched, test=TRUE, smd = TRUE) %>% as.d
 summary.unmatched.df$varnames <- rownames(summary.unmatched.df)
 
 # write_csv(x = summary.unmatched.df,
-#           path = file.path(filepath, "15_Model/round03/round03_01/across01_before_matching.csv"))
+#           path = file.path(filepath, "15_Model/round05/across01_before_matching.csv"))
 # write_csv(x = summary.unmatched.df,
-#           path = file.path(filepath, "15_Model/round03/round03_02/across02_before_matching.csv"))
+#           path = file.path(filepath, "15_Model/round05/across02_before_matching.csv"))
 # write_csv(x = summary.unmatched.df,
-#           path = file.path(filepath, "15_Model/round03/round03_03/across03_before_matching.csv"))
+#           path = file.path(filepath, "15_Model/round05/across03_before_matching.csv"))
+# write_csv(x = summary.unmatched.df,
+#           path = file.path(filepath, "15_Model/round05/across04_before_matching.csv"))
 
 
 psm <- glm(
@@ -573,7 +575,7 @@ psm <- glm(
     medcon + UACE10,
   family=binomial(link="logit"), 
   control = list(maxit = 100), 
-  data=temp06
+  data=r5acrs02, weights = n
 )
 summary(psm)
 
@@ -598,7 +600,7 @@ temp06 %>%
 
 temp06 %>% names()
 
-temp06[, c(31, 7, 12, 8, 11, 13:30, 32:100, 102:151, 154:155)] %>%
+temp06[, c(31, 7, 12, 8, 11, 13:30, 32:100, 102:151, 154:155)] %>% names()
 # temp06[, c(31, 6, 4, 9, 10, 13:30, 32:100, 102:151, 154:155)] %>%
   # write.csv(file.path(filepath, "15_Model/round05/across01.csv"))
   # write.csv(file.path(filepath, "15_Model/round05/across02.csv"))
@@ -617,6 +619,38 @@ temp06[, c(31, 7, 12, 8, 11, 13:30, 32:100, 102:151, 154:155)] %>%
 # r5acrs02 <- read_rds(file.path(filepath, "15_Model/round05/r5acrs02.rds"))
 # r5acrs03 <- read_rds(file.path(filepath, "15_Model/round05/r5acrs03.rds"))
 # r5acrs04 <- read_rds(file.path(filepath, "15_Model/round05/r5acrs04.rds"))
+
+sample <- r5acrs03 
+sample$RS %>% table()
+sample %>% dplyr::filter(RS ==1) %>% .$n %>% table()
+sample %>% dplyr::filter(RS ==0) %>% .$n %>% table()
+sample %>% dplyr::filter(RS ==1) %>% .$n %>% sum() 
+sample %>% dplyr::filter(RS ==0) %>% .$n %>% sum() 
+
+# library(MASS)
+# glm
+lm(LNWBMODE ~ 
+      LIF_CYC02 + LIF_CYC03 + LIF_CYC04 + LIF_CYC05 + LIF_CYC06 + 
+      WRKCOUNT + DRVRCNT + NUMCHILD + YOUNGCHILD + 
+      HHFAMINC02 + HHFAMINC03 + HHFAMINC04 + HHFAMINC05 + HHFAMINC06 + HOMEOWN2 + 
+      home.den.pp + home.den.st + home.jobrich + home.oldnbhd + home.sfh + 
+      home.pctcoll + home.pctyoung + home.pctxveh + 
+      work.den.pp + work.den.st + work.jobrich + work.oldnbhd + work.sfh + 
+      work.den.tech + work.den.serv + 
+      R_SEX + R_AGE + R_RACE02 + R_RACE03 + R_RACE04 + R_RACE06 + R_RACE97 + # R_RACE01 + 
+      R_HISP + DRIVER + EDUC02 + EDUC03 + EDUC04 +  OCCAT01 + OCCAT02 + OCCAT03 + OCCAT05 + # OCCAT04 + 
+      lncommute + WKFTPT2 + FLEXTIME2 + GT1JBLWK2 +  
+      Telecommute01 + Telecommute02 + Telecommute03 + Telecommute04 + 
+      deliver01 + deliver02 + deliver03 + deliver04 + 
+      PC01 + PC02 + PC03 + PC04 + 
+      SPHONE01 + SPHONE02 + SPHONE03 + SPHONE04 + 
+      TAB01 + TAB02 + TAB03 + TAB04 + 
+      WEB01 + WEB02 + WEB03 + WEB04 + 
+      medcon + UACE10,
+    weights = n, data=r5acrs04 #, 
+    #family=ordinal(link="logit"), 
+    #control = list(maxit = 100), 
+    ) %>% summary()
 
 
 ### Task 4-2-3. across-UA R package matching ----  
