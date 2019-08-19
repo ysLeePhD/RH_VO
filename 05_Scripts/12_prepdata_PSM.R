@@ -332,7 +332,7 @@ data13 %>% .$RS %>% summary()
 
 data13$RS <- data13$RS %>% 
   recode(
-    "0"=0L, " "=1L, #"1"=1L, #"2"=1L, "3"=1L, "4"=1L, 
+    "0"=0L, "4"=1L, #"1"=1L, #"2"=1L, "3"=1L, "4"=1L, 
     .default=NA_integer_, .missing = NA_integer_
   ) 
 data13 %>% .$RS %>% table()
@@ -347,11 +347,12 @@ b <- ncol(data13) - 53
 xvars <- data13 %>% names() %>% .[c(3:b)]
 xvars2 <- c(xvars, "distance")
 
+# summary.unmatched <-CreateTableOne(vars=xvars, strata="RS", data=data13, test=TRUE)
 summary.unmatched <-CreateTableOne(vars=xvars, strata="RS", data=data13, test=TRUE)
 # print(summary.unmatched, smd=TRUE)
 # ExtractSmd(summary.unmatched)
 summary.unmatched.df <- print(summary.unmatched, test=TRUE, smd = TRUE) %>% as.data.frame() 
-summary.unmatched.df$varnames <- rownames(summary.unmatched.df)
+summary.unmatched.df$varnames <- rownames(summary.unmatched.df) 
 
 # write_csv(x = summary.unmatched.df,
 #           path = file.path(filepath, "15_Model/round05/across01_before_matching.csv"))
@@ -578,7 +579,7 @@ psm <- glm(
   data=r5acrs02, weights = n
 )
 summary(psm)
-
+psm$coefficients %>% length() 
 
 nhtsualist3 <- nhtsualist2
 nhtsualist3$UAno <- rownames(nhtsualist3) %>% as.integer()
@@ -615,10 +616,10 @@ temp06[, c(31, 7, 12, 8, 11, 13:30, 32:100, 102:151, 154:155)] %>% names()
 # write_rds(temp06, file.path(filepath, "15_Model/round05/r5acrs04.rds"))
 
 
-# r5acrs01 <- read_rds(file.path(filepath, "15_Model/round05/r5acrs01.rds"))
-# r5acrs02 <- read_rds(file.path(filepath, "15_Model/round05/r5acrs02.rds"))
-# r5acrs03 <- read_rds(file.path(filepath, "15_Model/round05/r5acrs03.rds"))
-# r5acrs04 <- read_rds(file.path(filepath, "15_Model/round05/r5acrs04.rds"))
+r5acrs01 <- read_rds(file.path(filepath, "15_Model/round05/r5acrs01.rds"))
+r5acrs02 <- read_rds(file.path(filepath, "15_Model/round05/r5acrs02.rds"))
+r5acrs03 <- read_rds(file.path(filepath, "15_Model/round05/r5acrs03.rds"))
+r5acrs04 <- read_rds(file.path(filepath, "15_Model/round05/r5acrs04.rds"))
 
 sample <- r5acrs03 
 sample$RS %>% table()
@@ -871,29 +872,41 @@ match.UA50.across %>%
 
 
 ## Created weighted data object: https://rpubs.com/kaz_yos/matching-weights
-# if (!require("plotrix")) install.packages("plotrix", repos = "http://cran.us.r-project.org", dependencies = TRUE)
-# if (!require("grid")) install.packages("grid", repos = "http://cran.us.r-project.org", dependencies = TRUE)
-# if (!require("Matrix")) install.packages("Matrix", repos = "http://cran.us.r-project.org", dependencies = TRUE)
-# if (!require("survey")) install.packages("survey", repos = "http://cran.us.r-project.org", dependencies = TRUE)
-# 
-# library(plotrix)
-# library(grid) 
-# library(Matrix)
-# library(survey)
+if (!require("plotrix")) install.packages("plotrix", repos = "http://cran.us.r-project.org", dependencies = TRUE)
+if (!require("grid")) install.packages("grid", repos = "http://cran.us.r-project.org", dependencies = TRUE)
+if (!require("Matrix")) install.packages("Matrix", repos = "http://cran.us.r-project.org", dependencies = TRUE)
+if (!require("survey")) install.packages("survey", repos = "http://cran.us.r-project.org", dependencies = TRUE)
+
+library(plotrix)
+library(grid)
+library(Matrix)
+library(survey)
 
 # match.data.all.wt <- svydesign(ids = ~ 1, data = temp, weights = ~ weights2)
 # ## Weighted table with tableone
 # summary.test <- svyCreateTableOne(vars = xvars, strata ="RS", data = match.data.all.wt)
-# summary.test.df <- print(summary.test, test=TRUE, smd = TRUE) %>% as.data.frame() 
+# summary.test.df <- print(summary.test, test=TRUE, smd = TRUE) %>% as.data.frame()
 # summary.test.df$varnames <- rownames(x)
+# 
+# temp <- match.UA50.across
+# summary.matched <-CreateTableOne(vars=xvars, strata="RS", data=temp, test=TRUE)
+# # print(summary.unmatched, smd=TRUE)
+# # ExtractSmd(summary.unmatched)
+# summary.matched.df <- print(summary.matched, test=TRUE, smd = TRUE) %>% as.data.frame() 
+# summary.matched.df$varnames <- rownames(summary.matched.df)
 
-temp <- match.UA50.across
-summary.matched <-CreateTableOne(vars=xvars, strata="RS", data=temp, test=TRUE)
-# print(summary.unmatched, smd=TRUE)
-# ExtractSmd(summary.unmatched)
-summary.matched.df <- print(summary.matched, test=TRUE, smd = TRUE) %>% as.data.frame() 
+
+  
+match.data.all.wt <- svydesign(ids = ~ 1, data = r5acrs04, weights = ~ n)
+## Weighted table with tableone
+summary.matched <- svyCreateTableOne(vars = xvars, strata ="RS", data = match.data.all.wt)
+summary.matched.df <- print(summary.matched, test=TRUE, smd = TRUE) %>% as.data.frame()
 summary.matched.df$varnames <- rownames(summary.matched.df)
 
+
+  
+  
+  
 # write_csv(x = summary.test.df, 
 #           path = file.path(filepath, "15_Model/round03/round03_01/across01_after_matching.csv"))
 # write_csv(x = summary.test.df, 
@@ -912,56 +925,57 @@ summary.matched.df$varnames <- rownames(summary.matched.df)
 ## https://rpubs.com/kaz_yos/matching-weights
 ## matching.cov.list0 <- c("# RIDESHARE", "# HHVEHCNT", "O HHVENCHT", "O PT", "O Walk/Bike", "Yes RIDESHARE")
 
-dataPlot <- data.frame(variable   = rownames(ExtractSmd(summary.unmatched)), 
-                       Unadjusted = ExtractSmd(summary.unmatched)[, "1 vs 2"], 
-                       Weighted   = ExtractSmd(summary.test)[, "1 vs 2"])
-dataPlot <- dataPlot[c(7:nrow(dataPlot)), ]
-## dataPlot <- dataPlot[c(35, 61, 26, 27, 28, 45:49, 50:54, 55:59, 15:25, 1:10), ]
-
-
-matching.cov.list <- c("one adult, no children", "2+ adults, no children", "one adult, youngest child 0-5", "2+ adults, youngest child 0-5", 
-                       "one adult, youngest child 6-15", "2+ adults, youngest child 6-15", "one adult, youngest child 16-21", "2+ adults, youngest child 16-21", "one adult, retired, no children", 
-                       "2+adults, retired, no children", "# HH worker", "# HH driver", "# child", "Yes child 0-4", 
-                       "Less than $10,000", "$10,000-$14,999", "$15,000-$24,999", "$25,000-$34,999", "$35,000-$49,999", 
-                       "$50,000-$74,999", "$75,000-$99,999", "$100,000-$124,999", "$125,000-$149,999", "$150,000-$199,999", 
-                       "$200,000 or more", "Home owner", "Home density", "Work density", "% with collge", 
-                       "% 25-34", "% HH with no cars", "Tech job density", "Service job density", "Female", 
-                       "Age", "White", "Black", "Asian", "American Indian", 
-                       "Pacific Islander", "Multiple races", "Some other race", "Hispanic", "Driver", 
-                       "Less than HS", "Highschool", "Some college", "Bachelor's", "Graduate",
-                       "Sales or service", "Clerical/admin", "Manufacturing", "Professional", "Something else", 
-                       "Telecommute 0", "Telecommute 1-3", "Telecommute 4-7", "Telecommute 8-11", "Telecommute 12+", 
-                       "Medical condition", "# online delivery", "Google Trend")
-
 if (!require("reshape2")) 
   install.packages("reshape2", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 ## install.packages("reshape2")
 library(reshape2)
 
+dataPlot <- data.frame(variable   = rownames(ExtractSmd(summary.unmatched)), 
+                       Unadjusted = ExtractSmd(summary.unmatched)[, "1 vs 2"], 
+                       Weighted   = ExtractSmd(summary.matched)[, "1 vs 2"])
+dataPlot %>% rownames()
+dataPlot <- dataPlot[c(11:16, 21:27, 29, 39, 44, 54:57, 65, 76), ]
+## dataPlot <- dataPlot[c(35, 61, 26, 27, 28, 45:49, 50:54, 55:59, 15:25, 1:10), ]
+dataPlot %>% rownames()
+
+matching.cov.list <- c("One adult, no child", "2+ adults, no child", "Youngest child 0-5",  
+                       "Youngest child 6-15", "Youngest child 16-21", "Retired, no child",
+                       "Less than $35,000", "$35,000-$49,999",
+                       "$50,000-$74,999", "$75,000-$99,999", "$100,000-$149,999", "$150,000 or more",
+                       "Homeowner", "Home density", "Work density", 
+                       "Age", 
+                       "Up to a high school", "Some college", "Bachelor's", "Graduate",
+                       "Professional", 
+                       "Online delivery 3+/week")
+
+
 dataPlotMelt <- melt(data          = dataPlot, 
                      id.vars       = "variable", 
                      variable.name = "method", 
                      value.name    = "SMD")
-## dataPlotMelt$variable[1:62]<- matching.cov.list
-## dataPlotMelt$variable[63:124]<- matching.cov.list
+dataPlotMelt$variable[1:22]<- matching.cov.list
+dataPlotMelt$variable[23:44]<- matching.cov.list
 
-varsOrderedBySmd <- rownames(dataPlot)[order(dataPlot[, "Unadjusted"])]
-dataPlotMelt$variable <- factor(as.character(dataPlotMelt$variable), 
-                                levels = varsOrderedBySmd)
+# varsOrderedBySmd <- dataPlotMelt$variable[1:22][order(dataPlot[, "Unadjusted"])]
+dataPlotMelt$variable <- factor(as.character(dataPlotMelt$variable),
+                                levels = rev(matching.cov.list)) # varsOrderedBySmd)
 dataPlotMelt$method   <- factor(dataPlotMelt$method, 
                                 levels = c("Weighted", "Unadjusted"))
 
+jpeg(file.path(filepath, "17_Visualize/02_ICMC2019/comparison04.jpg"), 
+     width = 500, height = 800, units = "px", pointsize = 150,
+     quality = 300)
 
-jpeg(file.path(filepath, "17_Visualize/02_ICMC2019/balance01.jpg"), 
-     width = 600, height = 600, units = "px", pointsize = 72,
-     quality = 600)
-ggplot(data = dataPlotMelt, mapping = aes(x=variable, y=SMD, group=method, linetype=method)) + 
+ggplot(data = dataPlotMelt, mapping = aes(x=variable, y=SMD, group=method, linetype=method, color=method)) + 
   geom_line() +
   geom_point() + 
-  geom_hline(yintercept = 0, size = 0.3) + 
-  geom_hline(yintercept = 0.1, size = 0.1, color="red") + 
-  coord_flip() + 
-  theme_bw() + theme(legend.key = element_blank())
+  geom_hline(yintercept = 0, size = 0.3, color = "grey") +
+  geom_hline(yintercept = 0.1, size = 0.1, color="black") + 
+  coord_flip(ylim = c(0, 1.25)) + 
+  theme_bw() + theme(legend.key = element_blank(), 
+                     text = element_text(size=25)) +
+  xlab("") + ylab("") + theme(legend.position="none") 
+
 dev.off()
 
 ## Unweighted table with tableone 
