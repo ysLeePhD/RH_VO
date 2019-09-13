@@ -332,7 +332,7 @@ data13 %>% .$RS %>% summary()
 
 data13$RS <- data13$RS %>% 
   recode(
-    "0"=0L, "4"=1L, #"1"=1L, #"2"=1L, "3"=1L, "4"=1L, 
+    "0"=0L, "1"=1L, #"1"=1L, #"2"=1L, "3"=1L, "4"=1L, 
     .default=NA_integer_, .missing = NA_integer_
   ) 
 data13 %>% .$RS %>% table()
@@ -505,81 +505,88 @@ pooled <- data13[c(154, 12, 153)]
 treated <- pooled %>% filter(RS == 1)
 control <- pooled %>% filter(RS == 0)
 
-find.nearest <-function(x){
-  prob.treated <- 
+find.nearest <-function(x, n=20){
+  treated.prob <- 
     treated %>%
     filter(ID == x) %>%
     .$prob
   
-  ID.matched.control <- 
+  controls.matched <- 
     control %>%
     mutate(
-      diff = abs(prob - prob.treated)
+      diff = abs(prob - treated.prob), 
+      diff_rank = min_rank(diff)
     ) %>%
-    filter(diff<quarter.stdv) %>%
-    data.table() %>%
-    .[ , .SD[which.min(diff)], by = RS] 
+    filter(diff<quarter.stdv, diff_rank<=n)
   
-  return (c(x, ID.matched.control$ID, ID.matched.control$diff))
+  if(nrow(controls.matched)>0){
+    controls.matched$wt <- 1/nrow(controls.matched)
+    return(cbind(x, controls.matched))
+  } 
 }
 
-temp00 <- map(treated$ID, find.nearest)
-temp01 <- map_dbl(temp00, length) > 1
+temp00 <- map(treated$ID, ~find.nearest(., 20))
+temp01 <- map_dbl(temp00, nrow) >=1
 sum(temp01)/length(temp01)
+
+temp00[[1]]
 
 temp02 <- data.frame( 
   treated = map(temp00[temp01], ~.[1]) %>% unlist(), 
   control = map(temp00[temp01], ~.[2]) %>% unlist(), 
-  diff    = map(temp00[temp01], ~.[3]) %>% unlist() %>% as.numeric()
-)
-
-# temp02$diff %>% summary()
+  diff    = map(temp00[temp01], ~.[5]) %>% unlist() %>% as.numeric(), 
+  wt      = map(temp00[temp01], ~.[7]) %>% unlist() %>% as.numeric()
+) %>% as_tibble()
 
 temp03 <- temp02 %>%
   group_by(control) %>%
-  count()
-# temp03$n %>% summary() # Max == 10 
+  summarize(
+    rep = n(), 
+    wt = sum(wt)
+  )
+
+temp03$rep %>% table() # Max == 10 
 
 temp04 <- data13 %>%
-  semi_join(temp02, by = c("ID" = "treated")) 
-temp04$n <- 1
+  semi_join(treated[temp01, 1], by = c("ID" = "ID")) 
+temp04$wt <- 1
 
 temp05 <- data13 %>% 
-  inner_join(temp03, by = c("ID" = "control")) 
+  inner_join(temp03[, c(1,3)], by = c("ID" = "control")) 
 
 temp06 <- rbind(temp04, temp05)
 
-temp06 %>% filter(RS == 1) %>% .$n %>% sum()
-temp06 %>% filter(RS == 0) %>% .$n %>% sum()
-temp06 %>% filter(RS == 0) %>% .$n %>% summary()
+temp06 %>% filter(RS == 1) %>% .$wt %>% sum()
+temp06 %>% filter(RS == 0) %>% .$wt %>% sum()
+temp06 %>% filter(RS == 0) %>% .$wt %>% summary()
 
 temp06 %>% names()
 
-psm <- glm(
-  RS ~ 
-    LIF_CYC02 + LIF_CYC03 + LIF_CYC04 + LIF_CYC05 + LIF_CYC06 + 
-    WRKCOUNT + DRVRCNT + NUMCHILD + YOUNGCHILD + 
-    HHFAMINC02 + HHFAMINC03 + HHFAMINC04 + HHFAMINC05 + HHFAMINC06 + HOMEOWN2 + 
-    home.den.pp + home.den.st + home.jobrich + home.oldnbhd + home.sfh + 
-    home.pctcoll + home.pctyoung + home.pctxveh + 
-    work.den.pp + work.den.st + work.jobrich + work.oldnbhd + work.sfh + 
-    work.den.tech + work.den.serv + 
-    R_SEX + R_AGE + R_RACE02 + R_RACE03 + R_RACE04 + R_RACE06 + R_RACE97 + # R_RACE01 + 
-    R_HISP + DRIVER + EDUC02 + EDUC03 + EDUC04 +  OCCAT01 + OCCAT02 + OCCAT03 + OCCAT05 + # OCCAT04 + 
-    lncommute + WKFTPT2 + FLEXTIME2 + GT1JBLWK2 +  
-    Telecommute01 + Telecommute02 + Telecommute03 + Telecommute04 + 
-    deliver01 + deliver02 + deliver03 + deliver04 + 
-    PC01 + PC02 + PC03 + PC04 + 
-    SPHONE01 + SPHONE02 + SPHONE03 + SPHONE04 + 
-    TAB01 + TAB02 + TAB03 + TAB04 + 
-    WEB01 + WEB02 + WEB03 + WEB04 + 
-    medcon + UACE10,
-  family=binomial(link="logit"), 
-  control = list(maxit = 100), 
-  data=r5acrs02, weights = n
-)
-summary(psm)
-psm$coefficients %>% length() 
+# psm <- glm(
+#   RS ~ 
+#     LIF_CYC02 + LIF_CYC03 + LIF_CYC04 + LIF_CYC05 + LIF_CYC06 + 
+#     WRKCOUNT + DRVRCNT + NUMCHILD + YOUNGCHILD + 
+#     HHFAMINC02 + HHFAMINC03 + HHFAMINC04 + HHFAMINC05 + HHFAMINC06 + HOMEOWN2 + 
+#     home.den.pp + home.den.st + home.jobrich + home.oldnbhd + home.sfh + 
+#     home.pctcoll + home.pctyoung + home.pctxveh + 
+#     work.den.pp + work.den.st + work.jobrich + work.oldnbhd + work.sfh + 
+#     work.den.tech + work.den.serv + 
+#     R_SEX + R_AGE + R_RACE02 + R_RACE03 + R_RACE04 + R_RACE06 + R_RACE97 + # R_RACE01 + 
+#     R_HISP + DRIVER + EDUC02 + EDUC03 + EDUC04 +  OCCAT01 + OCCAT02 + OCCAT03 + OCCAT05 + # OCCAT04 + 
+#     lncommute + WKFTPT2 + FLEXTIME2 + GT1JBLWK2 +  
+#     Telecommute01 + Telecommute02 + Telecommute03 + Telecommute04 + 
+#     deliver01 + deliver02 + deliver03 + deliver04 + 
+#     PC01 + PC02 + PC03 + PC04 + 
+#     SPHONE01 + SPHONE02 + SPHONE03 + SPHONE04 + 
+#     TAB01 + TAB02 + TAB03 + TAB04 + 
+#     WEB01 + WEB02 + WEB03 + WEB04 + 
+#     medcon + UACE10,
+#   family=binomial(link="logit"), 
+#   control = list(maxit = 100), 
+#   data=temp06, weights = wt
+# )
+# summary(psm)
+# psm$coefficients %>% length() 
 
 nhtsualist3 <- nhtsualist2
 nhtsualist3$UAno <- rownames(nhtsualist3) %>% as.integer()
@@ -590,8 +597,7 @@ temp06 %>%
   spread(key = RS, value = n) %>% 
   mutate( n = `0` + `1`) %>% 
   left_join(nhtsualist3, by = "UACE10") %>%
-  #filter(n>67.04) %>%
-  arrange(n) %>% #by default ascending order 
+  arrange(n) # %>% #by default ascending order 
   # View() # %>%
   # write_csv(file.path(filepath, "15_Model/round05/CountbyUA01.csv"))
   # write_csv(file.path(filepath, "15_Model/round05/CountbyUA02.csv"))
@@ -602,56 +608,46 @@ temp06 %>%
 temp06 %>% names()
 
 temp06[, c(31, 7, 12, 8, 11, 13:30, 32:100, 102:151, 154:155)] %>% names()
-# temp06[, c(31, 6, 4, 9, 10, 13:30, 32:100, 102:151, 154:155)] %>%
-  # write.csv(file.path(filepath, "15_Model/round05/across01.csv"))
-  # write.csv(file.path(filepath, "15_Model/round05/across02.csv"))
-  # write.csv(file.path(filepath, "15_Model/round05/across03.csv"))
-  # write.csv(file.path(filepath, "15_Model/round05/across04.csv"))
-  # write.csv(file.path(filepath, "15_Model/round05/across05.csv"))
 
-  
+# temp06[, c(31, 6, 4, 9, 10, 13:30, 32:100, 102:151, 154:155)] %>%
+#   write.csv(file.path(filepath, "15_Model/round05/across01.csv"))
+#   write.csv(file.path(filepath, "15_Model/round05/across02.csv"))
+#   write.csv(file.path(filepath, "15_Model/round05/across03.csv"))
+#   write.csv(file.path(filepath, "15_Model/round05/across04.csv"))
+#   write.csv(file.path(filepath, "15_Model/round05/across05.csv"))
+
+filepath2 <- "C:/Users/ylee366/Dropbox (GaTech)/3a_ResearchCEE/13_Uber_TB"
+
+temp06[, c(31, 7, 12, 8, 11, 13:30, 32:100, 102:151, 154:155)] %>%
+  write_rds(file.path(filepath2, "15_Model/round01/rnd1acrs01.rds"))
+  # write_rds(file.path(filepath2, "15_Model/round05/rnd1acrs02.rds"))
+  # write_rds(file.path(filepath2, "15_Model/round05/rnd1acrs03.rds"))
+  # write_rds(file.path(filepath2, "15_Model/round05/rnd1acrs04.rds"))
+
 # write_rds(temp06, file.path(filepath, "15_Model/round05/r5acrs01.rds"))
 # write_rds(temp06, file.path(filepath, "15_Model/round05/r5acrs02.rds"))
 # write_rds(temp06, file.path(filepath, "15_Model/round05/r5acrs03.rds"))
 # write_rds(temp06, file.path(filepath, "15_Model/round05/r5acrs04.rds"))
 
+# r5acrs01 <- read_rds(file.path(filepath, "15_Model/round05/r5acrs01.rds"))
+# r5acrs02 <- read_rds(file.path(filepath, "15_Model/round05/r5acrs02.rds"))
+# r5acrs03 <- read_rds(file.path(filepath, "15_Model/round05/r5acrs03.rds"))
+# r5acrs04 <- read_rds(file.path(filepath, "15_Model/round05/r5acrs04.rds"))
 
-r5acrs01 <- read_rds(file.path(filepath, "15_Model/round05/r5acrs01.rds"))
-r5acrs02 <- read_rds(file.path(filepath, "15_Model/round05/r5acrs02.rds"))
-r5acrs03 <- read_rds(file.path(filepath, "15_Model/round05/r5acrs03.rds"))
-r5acrs04 <- read_rds(file.path(filepath, "15_Model/round05/r5acrs04.rds"))
+rnd1acrs01 <- read_rds(file.path(filepath2, "15_Model/round01/rnd1acrs01.rds"))
+# rnd1acrs02 <- read_rds(file.path(filepath2, "15_Model/round01/rnd1acrs02.rds"))
+# rnd1acrs03 <- read_rds(file.path(filepath2, "15_Model/round01/rnd1acrs03.rds"))
+# rnd1acrs04 <- read_rds(file.path(filepath2, "15_Model/round01/rnd1acrs04.rds"))
 
-sample <- r5acrs03 
+
+sample <- rnd1acrs01 
 sample$RS %>% table()
-sample %>% dplyr::filter(RS ==1) %>% .$n %>% table()
-sample %>% dplyr::filter(RS ==0) %>% .$n %>% table()
-sample %>% dplyr::filter(RS ==1) %>% .$n %>% sum() 
-sample %>% dplyr::filter(RS ==0) %>% .$n %>% sum() 
+sample %>% dplyr::filter(RS ==1) %>% .$wt %>% table()
+sample %>% dplyr::filter(RS ==0) %>% .$wt %>% table()
+sample %>% dplyr::filter(RS ==1) %>% .$wt %>% sum() 
+sample %>% dplyr::filter(RS ==0) %>% .$wt %>% sum() 
 
-# library(MASS)
-# glm
-lm(LNWBMODE ~ 
-      LIF_CYC02 + LIF_CYC03 + LIF_CYC04 + LIF_CYC05 + LIF_CYC06 + 
-      WRKCOUNT + DRVRCNT + NUMCHILD + YOUNGCHILD + 
-      HHFAMINC02 + HHFAMINC03 + HHFAMINC04 + HHFAMINC05 + HHFAMINC06 + HOMEOWN2 + 
-      home.den.pp + home.den.st + home.jobrich + home.oldnbhd + home.sfh + 
-      home.pctcoll + home.pctyoung + home.pctxveh + 
-      work.den.pp + work.den.st + work.jobrich + work.oldnbhd + work.sfh + 
-      work.den.tech + work.den.serv + 
-      R_SEX + R_AGE + R_RACE02 + R_RACE03 + R_RACE04 + R_RACE06 + R_RACE97 + # R_RACE01 + 
-      R_HISP + DRIVER + EDUC02 + EDUC03 + EDUC04 +  OCCAT01 + OCCAT02 + OCCAT03 + OCCAT05 + # OCCAT04 + 
-      lncommute + WKFTPT2 + FLEXTIME2 + GT1JBLWK2 +  
-      Telecommute01 + Telecommute02 + Telecommute03 + Telecommute04 + 
-      deliver01 + deliver02 + deliver03 + deliver04 + 
-      PC01 + PC02 + PC03 + PC04 + 
-      SPHONE01 + SPHONE02 + SPHONE03 + SPHONE04 + 
-      TAB01 + TAB02 + TAB03 + TAB04 + 
-      WEB01 + WEB02 + WEB03 + WEB04 + 
-      medcon + UACE10,
-    weights = n, data=r5acrs04 #, 
-    #family=ordinal(link="logit"), 
-    #control = list(maxit = 100), 
-    ) %>% summary()
+
 
 
 ### Task 4-2-3. across-UA R package matching ----  
