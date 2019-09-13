@@ -640,12 +640,13 @@ rnd1acrs01 <- read_rds(file.path(filepath2, "15_Model/round01/rnd1acrs01.rds"))
 # rnd1acrs04 <- read_rds(file.path(filepath2, "15_Model/round01/rnd1acrs04.rds"))
 
 
-sample <- rnd1acrs01 
-sample$RS %>% table()
-sample %>% dplyr::filter(RS ==1) %>% .$wt %>% table()
-sample %>% dplyr::filter(RS ==0) %>% .$wt %>% table()
-sample %>% dplyr::filter(RS ==1) %>% .$wt %>% sum() 
-sample %>% dplyr::filter(RS ==0) %>% .$wt %>% sum() 
+# sample <- rnd1acrs01 
+# sample$RS %>% table()
+# sample %>% dplyr::filter(RS ==1) %>% .$wt %>% table()
+# sample %>% dplyr::filter(RS ==0) %>% .$wt %>% table()
+# sample %>% dplyr::filter(RS ==1) %>% .$wt %>% sum() 
+# sample %>% dplyr::filter(RS ==0) %>% .$wt %>% sum() 
+
 
 
 
@@ -769,16 +770,49 @@ pairs01 %>%
 
 # [digression] check optimal matching performance (end) -------
 
-match.UA50.across <-  
-  match.data(match.UA50) %>% 
-  as_tibble() %>%
-  anti_join(pairs.outofcaliper, by = c("ID" = "treated")) %>%
-  anti_join(pairs.outofcaliper, by = c("ID" = "control"))
+
+#1. observed differences in vehicle holdings 
+a <- data13[data13$RS==0, ]$HHVEHCNT2 %>% table()
+a2 <- a/sum(a) 
+b <- data13[data13$RS==1, ]$HHVEHCNT2 %>% table()
+b2 <- b/sum(b)
+b2 %*% c(0, 1, 2, 3) - a2 %*% c(0, 1, 2, 3)
 
 library(MASS)
 
-test1 <- polr(HHVEHCNT2 ~ RS + WRKCOUNT + NUMCHILD + home.den.pp + UACE10, data = match.UA50.across)
-summary(test1)
+formula <- HHVEHCNT2 ~ RS + LIF_CYC02 + LIF_CYC03 + LIF_CYC04 + LIF_CYC05 + LIF_CYC06 + 
+  WRKCOUNT + DRVRCNT + NUMCHILD + YOUNGCHILD +
+  HHFAMINC02 + HHFAMINC03 + HHFAMINC04 + HHFAMINC05 + HHFAMINC06 + HOMEOWN2 +
+  home.den.pp + home.den.st + home.jobrich + home.oldnbhd + home.sfh +
+  home.pctcoll + home.pctyoung + home.pctxveh +
+  work.den.pp + work.den.st + work.jobrich + work.oldnbhd + work.sfh +
+  work.den.tech + work.den.serv +
+  R_SEX + R_AGE + R_RACE02 + R_RACE03 + R_RACE04 + R_RACE06 + R_RACE97 + # R_RACE01 +
+  R_HISP + DRIVER + EDUC02 + EDUC03 + EDUC04 +  OCCAT01 + OCCAT02 + OCCAT03 + OCCAT05 + # OCCAT04 +
+  lncommute + WKFTPT2 + FLEXTIME2 + GT1JBLWK2 +
+  Telecommute01 + Telecommute02 + Telecommute03 + Telecommute04 +
+  deliver01 + deliver02 + deliver03 + deliver04 +
+  PC01 + PC02 + PC03 + PC04 +
+  SPHONE01 + SPHONE02 + SPHONE03 + SPHONE04 +
+  TAB01 + TAB02 + TAB03 + TAB04 +
+  WEB01 + WEB02 + WEB03 + WEB04 +
+  medcon + UACE10
+
+## warning
+## https://stackoverflow.com/questions/12953045/warning-non-integer-successes-in-a-binomial-glm-survey-packages
+oprob.entire <- 
+  polr(formula, data = data13, 
+       method = c("probit"))  
+oprob.entire %>% 
+  fitted.values() %>% 
+  data.frame() %>%
+  
+
+polr(formula, data = rnd1acrs01, weights = wt, 
+     method = c("probit")) %>%
+  fitted.values()
+
+
 
 match.UA50.across$RS2 <- match.UA50.across$RS %>% as.factor()
 
