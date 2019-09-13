@@ -776,7 +776,7 @@ a <- data13[data13$RS==0, ]$HHVEHCNT2 %>% table()
 a2 <- a/sum(a) 
 b <- data13[data13$RS==1, ]$HHVEHCNT2 %>% table()
 b2 <- b/sum(b)
-b2 %*% c(0, 1, 2, 3) - a2 %*% c(0, 1, 2, 3)
+b2 %*% c(0, 1, 2, 3) - a2 %*% c(0, 1, 2, 3) # -0.1987557
 
 library(MASS)
 
@@ -803,14 +803,45 @@ formula <- HHVEHCNT2 ~ RS + LIF_CYC02 + LIF_CYC03 + LIF_CYC04 + LIF_CYC05 + LIF_
 oprob.entire <- 
   polr(formula, data = data13, 
        method = c("probit"))  
-oprob.entire %>% 
-  fitted.values() %>% 
-  data.frame() %>%
-  
 
-polr(formula, data = rnd1acrs01, weights = wt, 
-     method = c("probit")) %>%
-  fitted.values()
+exp.car <- 
+  oprob.entire %>% 
+  fitted.values() %>% 
+  data.frame() %>% 
+  cbind(data13) %>% 
+  group_by(RS) %>%
+  summarize(
+    prob_0 = mean(X0), 
+    prob_1 = mean(X1), 
+    prob_2 = mean(X2), 
+    prob_3 = mean(X3), 
+    exp.car = prob_1 + prob_2*2 + prob_3 * 3
+  ) %>% 
+  dplyr::select(exp.car) 
+
+exp.car[2, 1] - exp.car[1, 1] # -0.2016937
+
+
+oprob.matching <- 
+  polr(formula, data = rnd1acrs01, weights = wt, 
+     method = c("probit"))
+
+oprob.matching %>% coefficients() # didn't converge 
+
+exp.car2 <- 
+  oprob.matching %>% 
+  fitted.values() %>% 
+  data.frame() %>% 
+  cbind(rnd1acrs01) %>%
+  dplyr::select(X0, X1, X2, X3, RS, wt) %>%
+  as_tibble()
+
+library(stats)
+exp.car2.treated <- exp.car2 %>% filter(RS==1)
+exp.car2.control <- exp.car2 %>% filter(RS==0)
+users <- map_dbl(exp.car2.treated[c(1:4)], ~weighted.mean(., exp.car2.treated$wt)) %*% c(0, 1, 2, 3)
+nonusers <- map_dbl(exp.car2.control[c(1:4)], ~weighted.mean(., exp.car2.control$wt)) %*% c(0, 1, 2, 3)
+users - nonusers # -0.03972555
 
 
 
