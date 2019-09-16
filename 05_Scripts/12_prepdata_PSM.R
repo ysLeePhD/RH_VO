@@ -332,7 +332,7 @@ data13 %>% .$RS %>% summary()
 
 data13$RS <- data13$RS %>% 
   recode(
-    "0"=0L, "1"=1L, #"1"=1L, #"2"=1L, "3"=1L, "4"=1L, 
+    "0"=0L, "2"=1L, #"1"=1L, #"2"=1L, "3"=1L, "4"=1L, 
     .default=NA_integer_, .missing = NA_integer_
   ) 
 data13 %>% .$RS %>% table()
@@ -526,10 +526,13 @@ find.nearest <-function(x, n=20){
 }
 
 temp00 <- map(treated$ID, ~find.nearest(., 20))
-temp01 <- map_dbl(temp00, nrow) >=1
-sum(temp01)/length(temp01)
-
-temp00[[1]]
+temp01 <- map_lgl(temp00, ~!is.null(.))
+sum(temp01)/length(temp01) 
+# For the 0-1 comparison,  0 treated unmatched
+# For the 0-2 comparison, 13 treated unmatched
+# For the 0-3 comparison,  treated unmatched
+# For the 0-4 comparison,  treated unmatched
+length(temp01) - sum(temp01)
 
 temp02 <- data.frame( 
   treated = map(temp00[temp01], ~.[1]) %>% unlist(), 
@@ -545,7 +548,9 @@ temp03 <- temp02 %>%
     wt = sum(wt)
   )
 
-temp03$rep %>% table() # Max == 10 
+temp03$rep %>% table() 
+# For the 0-1 comparison, Max == 10 
+# For the 0-2 comparison, Max == 57 
 
 temp04 <- data13 %>%
   semi_join(treated[temp01, 1], by = c("ID" = "ID")) 
@@ -619,33 +624,26 @@ temp06[, c(31, 7, 12, 8, 11, 13:30, 32:100, 102:151, 154:155)] %>% names()
 filepath2 <- "C:/Users/ylee366/Dropbox (GaTech)/3a_ResearchCEE/13_Uber_TB"
 
 temp06[, c(31, 7, 12, 8, 11, 13:30, 32:100, 102:151, 154:155)] %>%
-  write_rds(file.path(filepath2, "15_Model/round01/rnd1acrs01.rds"))
-  # write_rds(file.path(filepath2, "15_Model/round05/rnd1acrs02.rds"))
-  # write_rds(file.path(filepath2, "15_Model/round05/rnd1acrs03.rds"))
-  # write_rds(file.path(filepath2, "15_Model/round05/rnd1acrs04.rds"))
+  # write_rds(file.path(filepath2, "15_Model/round01/rnd1acrs01.rds"))
+  write_rds(file.path(filepath2, "15_Model/round01/rnd1acrs02.rds"))
+  # write_rds(file.path(filepath2, "15_Model/round01/rnd1acrs03.rds"))
+  # write_rds(file.path(filepath2, "15_Model/round01/rnd1acrs04.rds"))
 
-# write_rds(temp06, file.path(filepath, "15_Model/round05/r5acrs01.rds"))
-# write_rds(temp06, file.path(filepath, "15_Model/round05/r5acrs02.rds"))
-# write_rds(temp06, file.path(filepath, "15_Model/round05/r5acrs03.rds"))
-# write_rds(temp06, file.path(filepath, "15_Model/round05/r5acrs04.rds"))
-
-# r5acrs01 <- read_rds(file.path(filepath, "15_Model/round05/r5acrs01.rds"))
-# r5acrs02 <- read_rds(file.path(filepath, "15_Model/round05/r5acrs02.rds"))
-# r5acrs03 <- read_rds(file.path(filepath, "15_Model/round05/r5acrs03.rds"))
-# r5acrs04 <- read_rds(file.path(filepath, "15_Model/round05/r5acrs04.rds"))
-
-rnd1acrs01 <- read_rds(file.path(filepath2, "15_Model/round01/rnd1acrs01.rds"))
-# rnd1acrs02 <- read_rds(file.path(filepath2, "15_Model/round01/rnd1acrs02.rds"))
+# rnd1acrs01 <- read_rds(file.path(filepath2, "15_Model/round01/rnd1acrs01.rds"))
+rnd1acrs02 <- read_rds(file.path(filepath2, "15_Model/round01/rnd1acrs02.rds"))
 # rnd1acrs03 <- read_rds(file.path(filepath2, "15_Model/round01/rnd1acrs03.rds"))
 # rnd1acrs04 <- read_rds(file.path(filepath2, "15_Model/round01/rnd1acrs04.rds"))
 
 
-# sample <- rnd1acrs01 
-# sample$RS %>% table()
-# sample %>% dplyr::filter(RS ==1) %>% .$wt %>% table()
-# sample %>% dplyr::filter(RS ==0) %>% .$wt %>% table()
-# sample %>% dplyr::filter(RS ==1) %>% .$wt %>% sum() 
-# sample %>% dplyr::filter(RS ==0) %>% .$wt %>% sum() 
+# sample <- rnd1acrs01
+sample <- rnd1acrs02
+# sample <- rnd1acrs03
+# sample <- rnd1acrs04
+sample$RS %>% table()
+sample %>% dplyr::filter(RS ==1) %>% .$wt %>% table()
+sample %>% dplyr::filter(RS ==0) %>% .$wt %>% table()
+sample %>% dplyr::filter(RS ==1) %>% .$wt %>% sum()
+sample %>% dplyr::filter(RS ==0) %>% .$wt %>% sum()
 
 
 
@@ -776,7 +774,11 @@ a <- data13[data13$RS==0, ]$HHVEHCNT2 %>% table()
 a2 <- a/sum(a) 
 b <- data13[data13$RS==1, ]$HHVEHCNT2 %>% table()
 b2 <- b/sum(b)
-b2 %*% c(0, 1, 2, 3) - a2 %*% c(0, 1, 2, 3) # -0.1987557
+b2 %*% c(0, 1, 2, 3) - a2 %*% c(0, 1, 2, 3) 
+# For the 0-1 comparison, -0.1987557
+# For the 0-2 comparison, -0.4009229
+# For the 0-3 comparison, 
+# For the 0-4 comparison, 
 
 library(MASS)
 
@@ -819,11 +821,18 @@ exp.car <-
   ) %>% 
   dplyr::select(exp.car) 
 
-exp.car[2, 1] - exp.car[1, 1] # -0.2016937
+exp.car[2, 1] - exp.car[1, 1] 
+# For the 0-1 comparison, -0.2016937
+# For the 0-2 comparison, -0.3947738
+# For the 0-3 comparison, 
+# For the 0-4 comparison, 
 
 
 oprob.matching <- 
-  polr(formula, data = rnd1acrs01, weights = wt, 
+  # polr(formula, data = rnd1acrs01, weights = wt, 
+  polr(formula, data = rnd1acrs02, weights = wt,        
+  # polr(formula, data = rnd1acrs03, weights = wt,
+  # polr(formula, data = rnd1acrs04, weights = wt,
      method = c("probit"))
 
 oprob.matching %>% coefficients() # didn't converge 
@@ -845,71 +854,80 @@ users - nonusers # -0.03972555
 
 
 
-match.UA50.across$RS2 <- match.UA50.across$RS %>% as.factor()
 
-test2 <- glm(RS2 ~ 
-               LIF_CYC02 + LIF_CYC03 + LIF_CYC04 + LIF_CYC05 + LIF_CYC06 + 
-               WRKCOUNT + NUMCHILD + DRVRCNT + YOUNGCHILD + 
-               HHFAMINC02 + HHFAMINC03 + HHFAMINC04 + HHFAMINC05 + HHFAMINC06 + 
-               HOMEOWN2 + 
-               HHVEHCNT2 + home.den.pp + work.den.pp + 
-               R_AGE + EDUC02 + EDUC03 + EDUC04 + OCCAT04 + 
-               Telecommute01 + Telecommute02 + Telecommute03 + Telecommute04 + 
-               deliver01 + deliver02 + deliver03 + deliver04 + 
-               SPHONE01 + SPHONE02 + SPHONE03 + SPHONE04 + 
-               UACE10, 
-             family = binomial(link = "probit"), 
-             data = match.UA50.across)
-summary(test2)
-# https://thestatsgeek.com/2014/02/08/r-squared-in-logistic-regression/
-# test2.null <- glm(RS2 ~1,
-#              family = binomial(link = "probit"),
+
+
+
+
+
+
+
+
+# match.UA50.across$RS2 <- match.UA50.across$RS %>% as.factor()
+# 
+# test2 <- glm(RS2 ~ 
+#                LIF_CYC02 + LIF_CYC03 + LIF_CYC04 + LIF_CYC05 + LIF_CYC06 + 
+#                WRKCOUNT + NUMCHILD + DRVRCNT + YOUNGCHILD + 
+#                HHFAMINC02 + HHFAMINC03 + HHFAMINC04 + HHFAMINC05 + HHFAMINC06 + 
+#                HOMEOWN2 + 
+#                HHVEHCNT2 + home.den.pp + work.den.pp + 
+#                R_AGE + EDUC02 + EDUC03 + EDUC04 + OCCAT04 + 
+#                Telecommute01 + Telecommute02 + Telecommute03 + Telecommute04 + 
+#                deliver01 + deliver02 + deliver03 + deliver04 + 
+#                SPHONE01 + SPHONE02 + SPHONE03 + SPHONE04 + 
+#                UACE10, 
+#              family = binomial(link = "probit"), 
 #              data = match.UA50.across)
-# 1-logLik(test2)/logLik(test2.null)
-match.UA50.across$RS2 <- NULL 
-
-detach("package:MASS", unload = TRUE)
-
-
-install.packages("olsrr", dep = TRUE)
-library(olsrr)
-
-test0 <- lm(home.den.pp ~ work.den.pp + DRVRCNT + DRIVER + NUMCHILD +   
-              LIF_CYC02 + LIF_CYC03 + LIF_CYC04 + LIF_CYC05 + LIF_CYC06 + 
-              HHFAMINC02 + HHFAMINC03 + HHFAMINC04 + HHFAMINC05 + HHFAMINC06 + 
-              HOMEOWN2 + # EDUC02 + EDUC03 + EDUC04 + # OCCAT04 + 
-              UACE10, 
-            data=match.UA50.across)
-
-summary(test0)
-ols_vif_tol(test0) %>%
-  filter(VIF>=2.5) %>%
-  arrange(desc(VIF))
-ols_plot_resid_fit_spread(test0)
-ols_plot_obs_fit(test0)
-
-
-
-
-match.UA50.across %>%
-  names()
-
-nhtsualist3 <- nhtsualist2
-nhtsualist3$UAno <- rownames(nhtsualist3) %>% as.integer()
-
-match.UA50.across %>% 
-  group_by(UACE10, RS) %>% 
-  summarize(n = n()) %>% 
-  spread(key = RS, value = n) %>% 
-  mutate( n = `0` + `1`) %>% 
-  left_join(nhtsualist3, by = "UACE10") %>%
-  #filter(n>67.04) %>%
-  arrange(n) %>% #by default ascending order 
-  View() #%>%
-  # write_csv(file.path(filepath, "15_Model/round04/CountbyUA01.csv"))
-  # write_csv(file.path(filepath, "15_Model/round04/CountbyUA02.csv"))
-  # write_csv(file.path(filepath, "15_Model/round04/CountbyUA03.csv"))
-  write_csv(file.path(filepath, "15_Model/round04/CountbyUA04.csv"))
+# summary(test2)
+# # https://thestatsgeek.com/2014/02/08/r-squared-in-logistic-regression/
+# # test2.null <- glm(RS2 ~1,
+# #              family = binomial(link = "probit"),
+# #              data = match.UA50.across)
+# # 1-logLik(test2)/logLik(test2.null)
+# match.UA50.across$RS2 <- NULL 
+# 
+# detach("package:MASS", unload = TRUE)
+# 
+# 
+# install.packages("olsrr", dep = TRUE)
+# library(olsrr)
+# 
+# test0 <- lm(home.den.pp ~ work.den.pp + DRVRCNT + DRIVER + NUMCHILD +   
+#               LIF_CYC02 + LIF_CYC03 + LIF_CYC04 + LIF_CYC05 + LIF_CYC06 + 
+#               HHFAMINC02 + HHFAMINC03 + HHFAMINC04 + HHFAMINC05 + HHFAMINC06 + 
+#               HOMEOWN2 + # EDUC02 + EDUC03 + EDUC04 + # OCCAT04 + 
+#               UACE10, 
+#             data=match.UA50.across)
+# 
+# summary(test0)
+# ols_vif_tol(test0) %>%
+#   filter(VIF>=2.5) %>%
+#   arrange(desc(VIF))
+# ols_plot_resid_fit_spread(test0)
+# ols_plot_obs_fit(test0)
+# 
+# 
+# 
+# 
+# match.UA50.across %>%
+#   names()
+# 
+# nhtsualist3 <- nhtsualist2
+# nhtsualist3$UAno <- rownames(nhtsualist3) %>% as.integer()
+# 
+# match.UA50.across %>% 
+#   group_by(UACE10, RS) %>% 
+#   summarize(n = n()) %>% 
+#   spread(key = RS, value = n) %>% 
+#   mutate( n = `0` + `1`) %>% 
+#   left_join(nhtsualist3, by = "UACE10") %>%
+#   #filter(n>67.04) %>%
+#   arrange(n) %>% #by default ascending order 
+#   View() #%>%
+#   # write_csv(file.path(filepath, "15_Model/round04/CountbyUA01.csv"))
+#   # write_csv(file.path(filepath, "15_Model/round04/CountbyUA02.csv"))
+#   # write_csv(file.path(filepath, "15_Model/round04/CountbyUA03.csv"))
+#   write_csv(file.path(filepath, "15_Model/round04/CountbyUA04.csv"))
 
 # match.UA50.across %>% write_rds(file.path(filepath, "11_Scratch/match_UA50_across_all.rds"))
 # match.UA50.across <- read_rds(file.path(filepath, "11_Scratch/match_UA50_across_all.rds"))
