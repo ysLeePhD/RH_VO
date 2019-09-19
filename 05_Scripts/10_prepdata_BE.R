@@ -21,6 +21,9 @@ if (!require("MatchIt")) install.packages("MatchIt", repos = "http://cran.us.r-p
 if (!require("optmatch")) install.packages("optmatch", repos = "http://cran.us.r-project.org", dependencies = TRUE)
 
 # detach(package:  )
+# detach(package:plyr)
+# detach(package:dplyr)
+# detach(package:tidyverse)
 
 library(foreign)
 library(plyr)
