@@ -836,7 +836,7 @@ oprob.matching <-
      method = c("probit"))
 
 oprob.matching %>% coefficients() # didn't converge 
-
+''
 exp.car2 <- 
   oprob.matching %>% 
   fitted.values() %>% 
