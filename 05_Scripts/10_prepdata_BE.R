@@ -836,7 +836,6 @@ write_rds(iv_all01, paste0(filepath, "/11_Scratch/iv_all01.rds"))  # 32,939 trac
 # iv_all01 <- read_rds(paste0(filepath, "/11_Scratch/iv_all01.rds")) 
 
 
-
 ## Task 2-7. Scrape walkscore.com: using a different file of scripts ----
 
 # trxy <- NULL 

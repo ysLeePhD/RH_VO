@@ -381,7 +381,7 @@ table(data08$R_SEX)
 # -7=I prefer not to answer
 # 01=Male
 # 02=Female
-# After processing: 0-male, 1-female
+# After processing: 1-male, 0-female
 # recode - https://dplyr.tidyverse.org/reference/recode.html
 data08$R_SEX <- 
   recode(data08$R_SEX, "01" = 1L, "02" = 0L, .default = NA_integer_) %>%
