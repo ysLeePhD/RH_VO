@@ -102,9 +102,9 @@ Sys.getenv("CENSUS_API_KEY")
 # end.time - start.time
 
 st      <- states(cb = TRUE, resolution = "20m", year = 2017) 
-st_proj <- st %>% st_as_sf() %>% st_transform(crs = 3857) %>% select(GEOID, NAME)
+st_proj <- st %>% st_as_sf() %>% st_transform(crs = 3857) %>% dplyr::select(GEOID, NAME)
 ua      <- urban_areas(cb = FALSE, year = 2017)  
-ua_proj <- ua %>% st_as_sf() %>% st_transform(crs = 3857) %>% select(UACE10, NAME10, ALAND10)
+ua_proj <- ua %>% st_as_sf() %>% st_transform(crs = 3857) %>% dplyr::select(UACE10, NAME10, ALAND10)
 
 # var.acs <- load_variables(2017, "acs5", cache = TRUE)
 ua_pop_raw <- get_acs(geography = "urban area", variables = c("B01001_001"), year = 2017, output ="wide") 
@@ -113,7 +113,7 @@ ua_pop <-ua_pop_raw %>%
   filter(grepl("San Juan, PR", NAME) == FALSE) %>%
   mutate(pop2017 = B01001_001E, 
          rank_pop = min_rank(desc(B01001_001E))) %>%
-  select(-NAME, -B01001_001E, -B01001_001M) %>%
+  dplyr::select(-NAME, -B01001_001E, -B01001_001M) %>%
   arrange(rank_pop) %>%
   filter(rank_pop<=50)
 
