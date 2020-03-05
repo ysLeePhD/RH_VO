@@ -403,6 +403,8 @@ get_lodes_wac <- function(x){
 lodes_wac_st <- map(list_st_names, get_lodes_wac)
 # map_lgl(lodes_wac_st, ~class(.)[[1]] %in% c("tbl_df", "tbl", "data.frame")) %>% sum()
 
+# https://lehd.ces.census.gov/data/lodes/LODES7/LODESTechDoc7.4.pdf
+# https://www.epa.gov/sites/production/files/2014-03/documents/sld_userguide.pdf
 lodes_wac_df <- lodes_wac_st %>%
   bind_rows() %>%
   mutate(
