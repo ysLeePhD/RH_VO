@@ -1,71 +1,39 @@
+# to increase speed, install packages from source instead of pre-compiled version (i.e., complie)
+# some useful scripts ---- 
+# remove.packages("")
+# install.packages("", type="source")
+# install.packages("devtools", dep = TRUE)
+# devtools::update_packages("")
+# library()
 
-# Step 0. Basic setup: libraries & working directory ----------------------
+# update packages ---- 
+pkgs <- 
+  c("devtools", "plyr", "tidyverse", 
+    "sf", "tigris", "tidycensus", "mapview", "tmap", 
+    "psych", "tableone", "MatchIt", "optmatch", "MASS", 
+    "stargazer", "questionr", "spatstat")
 
-if (!require("foreign")) install.packages("foreign", repos = "http://cran.us.r-project.org", dependencies = TRUE)
-if (!require("plyr")) install.packages("plyr", repos = "http://cran.us.r-project.org", dependencies = TRUE)
-if (!require("tidyverse")) install.packages("tidyverse", repos = "http://cran.us.r-project.org", dependencies = TRUE)
+for (i in seq_along(pkgs)){
+  devtools::update_packages(pkgs[[i]])#, dep = TRUE) # update one at a time 
+}
+# devtools::install_github("jamgreen/lehdr")
 
-if (!require("sf")) install.packages("sf", repos = "http://cran.us.r-project.org", dependencies = TRUE)
-if (!require("tidycensus")) install.packages("tidycensus", repos = "http://cran.us.r-project.org", dependencies = TRUE)
-if (!require("tigris")) install.packages("tigris", repos = "http://cran.us.r-project.org", dependencies = TRUE)
-if (!require("devtools")) install.packages("devtools")
-library(devtools)
-if (!require("lehdr")) devtools::install_github("jamgreen/lehdr")
-
-if (!require("mapview")) install.packages("mapview", repos = "http://cran.us.r-project.org", dependencies = TRUE)
-if (!require("tmap")) install.packages("tmap", repos = "http://cran.us.r-project.org", dependencies = TRUE)
-
-if (!require("psych")) install.packages("psych", repos = "http://cran.us.r-project.org", dependencies = TRUE)
-if (!require("tableone")) install.packages("tableone", repos = "http://cran.us.r-project.org", dependencies = TRUE)
-if (!require("MatchIt")) install.packages("MatchIt", repos = "http://cran.us.r-project.org", dependencies = TRUE)
-if (!require("optmatch")) install.packages("optmatch", repos = "http://cran.us.r-project.org", dependencies = TRUE)
-
-if (!require("MASS")) install.packages("MASS", repos = "http://cran.us.r-project.org", dependencies = TRUE)
-if (!require("questionr")) install.packages("questionr", repos = "http://cran.us.r-project.org", dependencies = TRUE)
-# if (!require("spatstat")) install.packages("spatstat", repos = "http://cran.us.r-project.org", dependencies = TRUE)
-
-library(foreign)
-library(plyr)
-library(tidyverse)
-
-library(sf)
-library(tidycensus)
-library(tigris)
-library(lehdr)
-library(mapview)
-library(tmap)
-
-library(psych)
-library(tableone)
-library(MatchIt)
-library(optmatch)
-library(survival)
-
-library(MASS)
-library(questionr)
-# library(spatstat)
+pkgs2 <- c(pkgs, "foreign", "here") # included in Base R + "lehdr"
+inst = lapply(pkgs2, library, character.only = TRUE) # load them
 
 options(stringsAsFactors = FALSE)
-# check the integer max value 
-#.Machine$integer.max 
-
-if (dir.exists("C:/Users/Yongs/")){
-  setwd("C:/Users/Yongs/Dropbox (GaTech)/3a_ResearchCEE/09_Uber_NHTS/RH_VO")
-} else {
-  setwd("C:/Users/ylee366/Dropbox (GaTech)/3a_ResearchCEE/09_Uber_NHTS/RH_VO")
-} 
-
-if (dir.exists("C:/Users/Yongs/")){
-  filepath <- "C:/Users/Yongs/Dropbox (GaTech)/3a_ResearchCEE/09_Uber_NHTS"
-} else {
-  filepath <- "C:/Users/ylee366/Dropbox (GaTech)/3a_ResearchCEE/09_Uber_NHTS"
-} 
+# .Machine$integer.max #check the integer max value
+filepath <- str_remove(here(), "/RH_VO")
 
 options(tigris_use_cache = TRUE)
 tigris_cache_dir(paste0(filepath, "/05_Census/tigris"))
+census_api_key("3b1d8912e33aa2d4c01bf1abc84729cfeb7cd6cd", install = TRUE, overwrite=TRUE)
+readRenviron("~/.Renviron")
 
+# tigris_cache_dir - trouble shoot ----
 # If tigris_cache_dir(paste0(filepath, "/05_Census/tigris")) doesn't work, 
-# Run below scripts line by line from the function.
+# Run below scripts line by line from the function 
+
 # path <- paste0(filepath, "/05_Census/tigris")
 # home <- Sys.getenv("HOME")
 # renv <- file.path(home, ".Renviron")
@@ -84,15 +52,3 @@ tigris_cache_dir(paste0(filepath, "/05_Census/tigris"))
 # write(var, renv, sep = "\n", append = TRUE)
 # message(sprintf("Your new tigris cache directory is %s. \nTo use now, restart R or run `readRenviron('~/.Renviron')`", 
 #                 path))
-
-readRenviron("~/.Renviron")
-Sys.getenv('TIGRIS_CACHE_DIR')
-
-# https://cran.r-project.org/web/packages/tidycensus/tidycensus.pdf
-if (Sys.getenv("CENSUS_API_KEY") != "3b1d8912e33aa2d4c01bf1abc84729cfeb7cd6cd"){
-  census_api_key("3b1d8912e33aa2d4c01bf1abc84729cfeb7cd6cd", install = TRUE, overwrite=TRUE)
-  readRenviron("~/.Renviron") # First time, reload your environment so you can use the key without restarting R.
-} 
-Sys.getenv("CENSUS_API_KEY")
-
-
