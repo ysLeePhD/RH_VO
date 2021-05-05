@@ -2,40 +2,19 @@
 source("05_Scripts/.setup.R")
 
 # Step 5. Generate Tables/Figures ---- 
+data13 <- read_rds(file.path(path_NHTS, "11_Scratch/data13.rds"))
 
-## Task 5-1. Histograms of endogenous variables ---- 
-
-library(grid)
-library(gridExtra)
-
-# from line 311 12_prepdata_PSM.R
-data13 <- read_rds(file.path(filepath, "11_Scratch/data13.rds"))
-
-names(data13)
-table(data13$RS)
-table(data13$HHVEHCNT)
-
-
-plotpath <- "C:/Users/ylee366/Dropbox (GaTech)/3a_ResearchCEE/09_Uber_NHTS/17_Visualize/02_ICMC2019"
-
+## Task 5-1. Histograms of endogenous variables (no need to repeat) ---- 
 # columns: RS four groups 
-# rows : BE, VO, RS, PT, WB 
+# rows : BE, VO, PT, WB 
 
 p1 <- ggplot(data = data13) +
-  geom_histogram(aes(x = data13$home.den.pp, y = ..density..), bins = 40, color = "grey30", fill = "white") + 
+  geom_histogram(aes(x = home.den.pp, y = ..density..), bins = 40, color = "grey30", fill = "white") + 
   coord_cartesian(xlim = c(-4, 4)) + 
   scale_y_continuous(labels = scales::percent) + 
   labs(title ="", x = "", y = "") + 
   theme(strip.text.x = element_blank()) + 
-  facet_wrap(facets = data13$RS, nrow = 1, ncol = 4)
-
-# ggplot(data = data13) +
-#   geom_bar(aes(x = as.factor(HHVEHCNT), y = ..prop.., group = 1)) + 
-#   coord_cartesian(xlim = c(0, 12)) + 
-#   scale_y_continuous(labels = scales::percent) + 
-#   labs(title ="", x = "", y = "Percent") + 
-#   theme(strip.text.x = element_blank()) + 
-#   facet_wrap(facets = data13$RS, nrow = 1, ncol = 4)
+  facet_wrap(~ RS, nrow = 1, ncol = 5)
 
 p2 <- ggplot(data = data13) +
   geom_bar(aes(x = as.factor(HHVEHCNT2), y = ..prop.., group = 1), color = "grey30", fill = "white") + 
@@ -43,23 +22,23 @@ p2 <- ggplot(data = data13) +
   scale_y_continuous(labels = scales::percent) + 
   labs(title ="", x = "", y = "") + 
   theme(strip.text.x = element_blank()) + 
-  facet_wrap(facets = data13$RS, nrow = 1, ncol = 4)
+  facet_wrap(facets = data13$RS, nrow = 1, ncol = 5)
 
-p3 <- ggplot(data = temp) +
+p3 <- ggplot(data = data13) +
   geom_bar(aes(x = PTUSED2, y = ..prop.., group = 1), color = "grey30", fill = "white") + 
   coord_cartesian(xlim = c(1, 4)) + 
   scale_y_continuous(labels = scales::percent) + 
   labs(title ="", x = "", y = "") + 
   theme(strip.text.x = element_blank()) + 
-  facet_wrap(facets = data13$RS, nrow = 1, ncol = 4)
+  facet_wrap(facets = data13$RS, nrow = 1, ncol = 5)
 
-p4 <- ggplot(data = temp) +
+p4 <- ggplot(data = data13) +
   geom_bar(aes(x = NWBMODE2, y = ..prop.., group = 1), color = "grey30", fill = "white") + 
   coord_cartesian(xlim = c(1, 4)) + 
   scale_y_continuous(labels = scales::percent) + 
   labs(title ="", x = "", y = "") + 
   theme(strip.text.x = element_blank()) + 
-  facet_wrap(facets = data13$RS, nrow = 1, ncol = 4)
+  facet_wrap(facets = data13$RS, nrow = 1, ncol = 5)
 
 grid.arrange(p1, p2, p3, p4, ncol=1)
 
@@ -132,7 +111,6 @@ rbind(sumstat02, sumstat01)[, c(5, 1:4)] %>% write_csv(file.path(filepath, "11_S
 
 
 ## Task 5-3. Compute probabilities of owning zero, 1, 2, and 3+ vehicles ---- 
-
 ### Task 5-3-1. For occasional users ----
 
 across01a <- read_csv(file.path(filepath, "15_Model/round03/round03_01/across01.csv"))
@@ -454,6 +432,3 @@ a <- across01c %>% # predicted cars based on "counterfactual" user status
 
 (b-a) %*% c(0, 1, 2, 3) # reduction/ditching of one car per 1,000 occasional users 
 # less than once a week (1-3 times in the last 30 days) 
-
-
-

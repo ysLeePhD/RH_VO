@@ -2,8 +2,7 @@
 source("05_Scripts/.setup.R")
 
 # Step 1. Read in input files ------------------------------------------------
-
-## Task 1-1. Prepare a data frame of block group FIPS codes in top 50 UA (by popoulation in 2013-2017 ACS) ----
+## Task 1-1. Prepare a data frame of block group FIPS codes in top 50 UA (by population in 2013-2017 ACS) ----
 
 # start.time <- Sys.time() # https://stackoverflow.com/questions/6262203/measuring-function-execution-time-in-r
 # end.time <- Sys.time()
@@ -934,7 +933,3 @@ data06$GTscore <- NULL
 
 rm("nhtsualist", "nhtsualist2", "temp1", "GTUBER", "GTUBER2", "GTUBER3", "GTUBER4", "data04", "data05")
 rm("uber06", "uber07", "uber08", "uber09", "uber10")
-
-
-
-

@@ -1163,5 +1163,3 @@ cbind(varname.short3, varname.long) %>%
 ## boxplot(as.numeric(data13$NWBMODE2)~UA44, data=data13)
 ## summary(as.numeric(as.character(data13[data13$UA44==1 & data13$RS==1, ]$NWBMODE2)))
 ## summary(as.numeric(as.character(data13[data13$UA44==1 & data13$RS==0, ]$NWBMODE2)))
-
-

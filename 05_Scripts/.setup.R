@@ -11,24 +11,27 @@ pkgs <-
   c("devtools", "plyr", "tidyverse", 
     "sf", "tigris", "tidycensus", "mapview", "tmap", 
     "psych", "tableone", "MatchIt", "optmatch", "MASS", 
-    "stargazer", "questionr", "spatstat")
+    "stargazer", "questionr", "spatstat", 
+    "grid", "gridExtra")
 
 for (i in seq_along(pkgs)){
   devtools::update_packages(pkgs[[i]])#, dep = TRUE) # update one at a time 
 }
-# devtools::install_github("jamgreen/lehdr")
+devtools::install_github("jamgreen/lehdr")
 
 pkgs2 <- c(pkgs, "foreign", "here") # included in Base R + "lehdr"
 inst = lapply(pkgs2, library, character.only = TRUE) # load them
-
-options(stringsAsFactors = FALSE)
-# .Machine$integer.max #check the integer max value
-filepath <- str_remove(here(), "/RH_VO")
 
 options(tigris_use_cache = TRUE)
 tigris_cache_dir(paste0(filepath, "/05_Census/tigris"))
 census_api_key("3b1d8912e33aa2d4c01bf1abc84729cfeb7cd6cd", install = TRUE, overwrite=TRUE)
 readRenviron("~/.Renviron")
+
+options(stringsAsFactors = FALSE)
+# .Machine$integer.max #check the integer max value
+filepath  <- str_remove(here(), "/RH_VO")
+path_NHTS <- str_remove(here(), "/RH_VO")
+path_plot <- file.path(path_NHTS, "17_Visualize/02_ICMC2019")
 
 # tigris_cache_dir - trouble shoot ----
 # If tigris_cache_dir(paste0(filepath, "/05_Census/tigris")) doesn't work, 
